@@ -17,7 +17,7 @@ O **Conexus Mobile OS** é um sistema operacional móvel **open source** (Apache
 - **Site público:** `conexus-mobile-os.github.io` na organização `conexus-mobile-os` — docs, downloads, OTA metadata, device support
 - **Device primário:** Google Pixel 8a (`akita`) — Tensor G3, kernel 6.1 GKI mainline, LineageOS 23.2 oficial
 - **Device backup:** Nothing Phone (2) (`pong`) — Snapdragon 8+ Gen 1, kernel source OEM
-- **Trilha pesquisa:** Lumia 950/950 XL (experimental, não-produto)
+- **Trilha pesquisa:** Lumia 950/950 XL e Lumia 730/735 (experimental, não-produto; o 730 é apenas documental, ver ADR-002)
 
 ### Fora de Escopo Inicial
 - Kernel próprio do zero
