@@ -1,0 +1,223 @@
+# CI Pipeline for Conexus Mobile OS
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'site/**'
+      - 'docs/**'
+      - '*.md'
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - 'site/**'
+      - 'docs/**'
+      - '*.md'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Kotlin/Kotlin Multiplatform - Unit Tests & Lint
+  kotlin:
+    name: Kotlin (Unit Tests, Lint, Typecheck)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      
+      - name: Setup JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'gradle'
+      
+      - name: Setup Gradle
+        uses: gradle/gradle-build-action@v3
+        with:
+          gradle-version: '8.5'
+      
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+      
+      - name: Run ktlint
+        run: ./gradlew ktlintCheck --no-daemon
+      
+      - name: Run detekt
+        run: ./gradlew detekt --no-daemon
+      
+      - name: Run unit tests
+        run: ./gradlew test --no-daemon --scan
+      
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kotlin-test-reports
+          path: |
+            **/build/reports/tests/**
+            **/build/reports/detekt/**
+            **/build/reports/ktlint/**
+          retention-days: 7
+
+  # TypeScript/React Native - Unit Tests, Lint, Typecheck
+  typescript:
+    name: TypeScript (Unit Tests, Lint, Typecheck)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: ./framework/sdk/typescript
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: framework/sdk/typescript/package-lock.json
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run ESLint
+        run: npm run lint
+      
+      - name: Run TypeScript type check
+        run: npm run typecheck
+      
+      - name: Run unit tests
+        run: npm run test
+      
+      - name: Build
+        run: npm run build
+      
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: typescript-test-reports
+          path: |
+            framework/sdk/typescript/coverage/**
+          retention-days: 7
+
+  # Security Scanning
+  security:
+    name: Security (SBOM, Vuln Scan, License Check)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          format: spdx-json
+          output-file: sbom.spdx.json
+      
+      - name: Check Licenses
+        run: |
+          python3 -c "
+import json, sys
+with open('sbom.spdx.json') as f:
+    sbom = json.load(f)
+allowed = {'Apache-2.0', 'MIT', 'BSD-3-Clause', 'BSD-2-Clause', 'ISC', 'Unicode-3.0', 'OFL-1.1', 'CC0-1.0', 'Zlib', 'libpng'}
+blocked = {'GPL-3.0', 'AGPL-3.0', 'LGPL-3.0', 'SSPL', 'Commons Clause', 'BSL'}
+violations = []
+for pkg in sbom.get('packages', []):
+    lic = pkg.get('licenseConcluded', '')
+    if any(b in lic for b in blocked):
+        violations.append(f'{pkg.get("name", "unknown")}: {lic}')
+    elif not any(a in lic for a in allowed) and lic not in ['NOASSERTION', 'NONE']:
+        violations.append(f'{pkg.get("name", "unknown")}: {lic} (unrecognized)')
+if violations:
+    print('LICENSE VIOLATIONS:')
+    for v in violations: print(f'  - {v}')
+    sys.exit(1)
+print('All licenses OK')
+          "
+      
+      - name: Vulnerability Scan (Trivy)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          format: 'sarif'
+          output: 'trivy.sarif'
+          severity: 'CRITICAL,HIGH'
+      
+      - name: Upload Trivy SARIF
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy.sarif'
+      
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom.spdx.json
+          retention-days: 30
+
+  # Documentation Links Check
+  docs:
+    name: Docs (Link Check, Spell Check)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install lychee (link checker)
+        run: npm install -g lychee
+      
+      - name: Check links in markdown files
+        run: |
+          lychee --verbose --max-concurrency 10 \
+            --exclude-mail \
+            --exclude-domain github.com \
+            --exclude-domain twitter.com \
+            --exclude-domain mastodon.social \
+            --exclude-domain matrix.org \
+            **/*.md
+      
+      - name: Spell check (cspell)
+        run: |
+          npx cspell@latest "**/*.md" --gitignore --no-progress
+
+  # Mark PR as ready for review when all checks pass
+  review-ready:
+    name: Review Ready
+    needs: [kotlin, typescript, security, docs]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Check all required checks passed
+        run: |
+          echo "All CI checks passed! PR is ready for review."
+          echo "Required checks: kotlin, typescript, security, docs"
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '✅ All CI checks passed! This PR is ready for review.\n\n**Required checks passed:**\n- ✅ Kotlin (tests, lint, detekt)\n- ✅ TypeScript (tests, lint, typecheck)\n- ✅ Security (SBOM, license check, vuln scan)\n- ✅ Docs (link check, spell check)\n\n**Next steps:**\n1. Request review from maintainer\n2. Address any review comments\n3. Squash and merge when approved'

@@ -1,0 +1,85 @@
+# Conexus Mobile OS — Site Config
+title: "Conexus Mobile OS"
+description: "Sistema operacional móvel open source baseado no LineageOS 23.2, com experiência Windows 10 Mobile (Live Tiles, Metro UI) e Conexus Launcher padrão."
+url: "https://conexus-mobile-os.github.io"
+baseurl: ""
+
+# Organization
+github_org: "conexus-mobile-os"
+github_repo: "conexus-mobile-os"
+
+# Build
+markdown: kramdown
+highlighter: rouge
+kramdown:
+  input: GFM
+  syntax_highlighter: rouge
+
+# Plugins
+plugins:
+  - jekyll-feed
+  - jekyll-sitemap
+  - jekyll-seo-tag
+  - jekyll-relative-links
+
+# Collections
+collections:
+  devices:
+    output: true
+    permalink: /devices/:name/
+  releases:
+    output: true
+    permalink: /releases/:name/
+
+# Defaults
+defaults:
+  - scope:
+      path: ""
+      type: "pages"
+    values:
+      layout: "default"
+      lang: "pt-BR"
+  - scope:
+      path: ""
+      type: "posts"
+    values:
+      layout: "post"
+      lang: "pt-BR"
+  - scope:
+      path: ""
+      type: "devices"
+    values:
+      layout: "device"
+  - scope:
+      path: ""
+      type: "releases"
+    values:
+      layout: "release"
+
+# Exclude
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - node_modules
+  - vendor
+  - .git
+  - .github
+  - scripts
+  - "*.md"
+  - "*.txt"
+  - "*.yml"
+  - "*.yaml"
+
+# Social
+social:
+  github: "https://github.com/conexus-mobile-os"
+  twitter: "https://twitter.com/conexusmobileos"
+  mastodon: "https://mastodon.social/@conexusmobileos"
+
+# Languages
+languages:
+  - pt-BR
+  - en
+
+# OTA
+ota_endpoint: "https://conexus-mobile-os.github.io/ota/ota_metadata.json"
