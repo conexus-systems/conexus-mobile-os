@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["framework/sdk/rust"]
+members = ["framework/sdk/rust", "services/core"]
 
 [workspace.package]
 edition = "2021"
