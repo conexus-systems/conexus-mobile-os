@@ -63,6 +63,14 @@ impl AppManifest {
         if !is_semver(&self.version) {
             return Err(err("version", format!("'{}' não é SemVer", self.version)));
         }
+        for (i, p) in self.permissions.iter().enumerate() {
+            if self.permissions[..i].contains(p) {
+                return Err(err("permissions", "permissão repetida"));
+            }
+        }
+        if let Some(bad) = self.tiles.iter().find(|t| !crate::tile::is_valid_tile_id(t)) {
+            return Err(err("tiles", format!("tileId '{bad}' inválido")));
+        }
         if let Some(bad) = self.deep_links.iter().find(|d| !d.starts_with("conexus://")) {
             return Err(err("deepLinks", format!("'{bad}' não usa o esquema conexus://")));
         }
@@ -72,7 +80,10 @@ impl AppManifest {
 
 /// SemVer 2.0 simplificado, igual ao padrão do schema.
 fn is_semver(v: &str) -> bool {
-    let (core, _) = v.split_once('+').map_or((v, ""), |(a, b)| (a, b));
+    let (core, build) = v.split_once('+').map_or((v, None), |(a, b)| (a, Some(b)));
+    let build_ok = build.map_or(true, |b| {
+        !b.is_empty() && b.chars().all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-')
+    });
     let (core, pre) = core.split_once('-').map_or((core, None), |(a, b)| (a, Some(b)));
     let nums: Vec<&str> = core.split('.').collect();
     let num_ok = nums.len() == 3
@@ -82,5 +93,5 @@ fn is_semver(v: &str) -> bool {
     let pre_ok = pre.map_or(true, |p| {
         !p.is_empty() && p.chars().all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-')
     });
-    num_ok && pre_ok
+    num_ok && pre_ok && build_ok
 }
