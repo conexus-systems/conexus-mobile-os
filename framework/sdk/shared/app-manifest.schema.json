@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conexus-mobile-os.github.io/schemas/app-manifest.schema.json",
+  "title": "Conexus App Manifest",
+  "type": "object",
+  "required": ["appId", "version", "entryPoint"],
+  "additionalProperties": false,
+  "properties": {
+    "appId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$",
+      "description": "Domínio reverso, ex.: systems.conexus.reference"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(-[0-9A-Za-z.-]+)?(\\+[0-9A-Za-z.-]+)?$",
+      "description": "SemVer"
+    },
+    "entryPoint": {
+      "type": "object",
+      "required": ["runtime"],
+      "additionalProperties": false,
+      "properties": {
+        "runtime": { "type": "string", "enum": ["kotlin", "ts", "web", "native"] },
+        "main": { "type": "string" }
+      }
+    },
+    "permissions": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": ["tileUpdate", "deepLinkHandle", "notifications", "search", "location", "camera", "microphone", "storage"]
+      }
+    },
+    "deepLinks": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^conexus://" }
+    },
+    "tiles": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}

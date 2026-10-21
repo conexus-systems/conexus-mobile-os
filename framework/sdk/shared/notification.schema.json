@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conexus-mobile-os.github.io/schemas/notification.schema.json",
+  "title": "Conexus Notification",
+  "type": "object",
+  "required": ["id", "channel", "title"],
+  "additionalProperties": false,
+  "properties": {
+    "id": { "type": "string", "maxLength": 128 },
+    "channel": { "type": "string", "pattern": "^[a-z0-9._-]{1,64}$" },
+    "title": { "type": "string", "maxLength": 200 },
+    "body": { "type": "string", "maxLength": 2000 },
+    "style": { "type": "string", "enum": ["messaging", "media", "progress"] },
+    "badge": { "type": "integer", "minimum": 0 },
+    "actions": {
+      "type": "array",
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "required": ["type", "label"],
+        "additionalProperties": false,
+        "properties": {
+          "type": { "type": "string", "enum": ["button", "input", "inlineReply", "deepLink"] },
+          "label": { "type": "string", "maxLength": 40 },
+          "deepLink": { "type": "string", "pattern": "^conexus://" }
+        }
+      }
+    }
+  }
+}
