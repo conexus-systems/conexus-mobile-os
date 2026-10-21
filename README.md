@@ -119,7 +119,7 @@ O **Conexus Mobile OS** nasce da ideia de preservar o que tornava o Windows 10 M
 1. Leia [CORE.md](CORE.md) para entender princípios e Definition of Done
 2. Revise [ADRs](docs/architecture/ADR/) para decisões arquiteturais
 3. Verifique [AGENTS.md](AGENTS.md) para entender estrutura de trabalho
-4. Issues e discussões: [GitHub Issues](https://github.com/conexus-mobile-os/conexus-mobile-os/issues)
+4. Issues e discussões: [GitHub Issues](https://github.com/conexus-systems/conexus-mobile-os/issues)
 
 ### Princípios de Contribuição
 - **Clean room:** Separação entre research (observação) e implementation (código original)
@@ -152,7 +152,7 @@ O **Conexus Mobile OS** nasce da ideia de preservar o que tornava o Windows 10 M
 
 ## Release & Distribuição Open Source
 
-### Organização GitHub: `conexus-mobile-os`
+### Organização GitHub: `conexus-systems` (atual) — org pública `conexus-mobile-os` planejada (M0)
 - `conexus-mobile-os` — monorepo principal
 - `platforms-android-manifest` — manifest repo LineageOS + Conexus customizations
 - `conexus-launcher` — launcher standalone
@@ -225,15 +225,15 @@ Componentes de terceiros: veja [THIRD_PARTY_NOTICES.md](docs/legal/THIRD_PARTY_N
 
 ## Contato & Links
 
-- **Organização GitHub:** https://github.com/conexus-mobile-os
+- **Organização GitHub:** https://github.com/conexus-systems (org pública `conexus-mobile-os` planejada no M0)
 - **Site Público:** https://conexus-mobile-os.github.io
-- **Downloads/Releases:** https://github.com/conexus-mobile-os/conexus-mobile-os/releases
+- **Downloads/Releases:** https://github.com/conexus-systems/conexus-mobile-os/releases
 - **Documentação:** https://conexus-mobile-os.github.io/docs
 - **OTA Metadata:** https://conexus-mobile-os.github.io/ota/ota_metadata.json
 - **Legal/Security:** security@conexus.systems
 - **Matrix:** https://matrix.to/#/#conexus-mobile-os:matrix.org
-- **Discussions:** https://github.com/conexus-mobile-os/conexus-mobile-os/discussions
+- **Discussions:** https://github.com/conexus-systems/conexus-mobile-os/discussions
 
 ---
 
-*Última atualização: 21 de outubro de 2026 — SDD v0.2 (LineageOS 23.2 base, Conexus Launcher default, Open Source)*# conexus-mobile-os
+*Última atualização: 21 de outubro de 2026 — SDD v0.2 (LineageOS 23.2 base, Conexus Launcher default, Open Source)*
