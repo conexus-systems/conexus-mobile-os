@@ -55,6 +55,40 @@ pub enum DriverError {
     Unsigned(String),
     BadSignature(String),
     AlreadyInstalled(String),
+    /// Nenhuma variante do bundle serve para este aparelho e este kernel.
+    NoMatchingVariant { device: String, kernel_release: String },
+    /// Mais de uma variante serve; o bundle é ambíguo e é recusado.
+    AmbiguousVariant { device: String, kernel_release: String },
+    /// O KMI do módulo não é o do kernel instalado.
+    KmiMismatch { expected: String, found: String },
+}
+
+/// Identificação do aparelho onde o bundle será instalado.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DeviceInfo {
+    /// Codinome do device, ex.: `akita`.
+    pub device: String,
+    /// `uname -r` do kernel em execução.
+    pub kernel_release: String,
+    /// KMI do kernel em execução, ex.: `android14-6.1`.
+    pub kmi: String,
+}
+
+/// Uma variante do bundle: pacote compilado para um device e um kernel exatos.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DriverVariant {
+    pub device: String,
+    pub kernel_release: String,
+    pub package: DriverPackage,
+}
+
+/// Contêiner entregue num APK (ADR-014): reúne as variantes de uma marca.
+/// O APK só transporta o bundle; quem verifica e carrega é o driver manager,
+/// serviço de sistema. O APK em si não recebe privilégio de kernel.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DriverBundle {
+    pub brand: String,
+    pub variants: Vec<DriverVariant>,
 }
 
 impl From<ValidationError> for DriverError {
@@ -95,6 +129,34 @@ impl<V: SignatureVerifier> DriverManager<V> {
         }
         self.installed.insert(name, package.manifest);
         Ok(())
+    }
+
+    /// Instala a variante do bundle que corresponde ao aparelho e ao kernel.
+    /// A assinatura é verificada pelo mesmo caminho de `install`.
+    pub fn install_bundle(&mut self, bundle: &DriverBundle, device: &DeviceInfo) -> Result<(), DriverError> {
+        let mut matches = bundle
+            .variants
+            .iter()
+            .filter(|v| v.device == device.device && v.kernel_release == device.kernel_release);
+        let variant = matches.next().ok_or_else(|| DriverError::NoMatchingVariant {
+            device: device.device.clone(),
+            kernel_release: device.kernel_release.clone(),
+        })?;
+        if matches.next().is_some() {
+            return Err(DriverError::AmbiguousVariant {
+                device: device.device.clone(),
+                kernel_release: device.kernel_release.clone(),
+            });
+        }
+        let manifest = &variant.package.manifest;
+        if manifest.kind == DriverKind::KernelModule {
+            if let Some(kmi) = manifest.kmi.as_deref() {
+                if kmi != device.kmi {
+                    return Err(DriverError::KmiMismatch { expected: device.kmi.clone(), found: kmi.to_string() });
+                }
+            }
+        }
+        self.install(variant.package.clone())
     }
 
     pub fn get(&self, name: &str) -> Option<&DriverManifest> {
