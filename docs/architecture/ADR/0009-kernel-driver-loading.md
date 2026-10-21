@@ -23,6 +23,17 @@ Um driver que roda no kernel tem acesso total à memória. Permitir instalação
 
 ## Decisão proposta
 
+### Core único, drivers como pacotes
+
+O sistema tem **um core só**: o mesmo conjunto de serviços de sistema (`conexus-*`), o mesmo framework de drivers e a mesma ABI de driver, em todos os alvos. Cada dispositivo adiciona apenas:
+
+- o kernel do próprio device (GKI do Pixel, kernel do fabricante ou Linux do Lumia), porque um único binário de kernel não serve para SoCs diferentes;
+- um **pacote de driver** por componente de hardware, com manifest, assinado pela chave de driver (ex.: `motorola-moto-g-touch`, `pixel-8a-camera`).
+
+Um pacote de driver é userspace por padrão (classe 1). Só entra como módulo de kernel quando não há interface userspace (classe 2). Um APK de driver não recebe privilégio de kernel e só é aceito pelo `conexus-driver-manager` se estiver assinado pela chave de driver do projeto.
+
+Consequência para a pergunta de instalar drivers de fabricante: os blobs de um device específico são um pacote de driver desse device, gerado a partir do aparelho do usuário e fora do repo (ver ADR de device, a criar).
+
 **Manter um kernel Linux upstream (GKI do device) e habilitar módulos carregáveis com assinatura obrigatória. Drivers de terceiros entram em duas classes:**
 
 1. **Drivers de userspace (preferidos):** HAL/serviço em processo isolado, comunicação por Binder/AIDL (Android) ou D-Bus (Lumia). Não tocam o kernel. Instalados pelo `conexus-driver-manager`, com domínio SELinux próprio. Cobrem a maior parte dos casos (sensores via IIO userspace, USB gadget, dispositivos com interface VFIO/UIO).
