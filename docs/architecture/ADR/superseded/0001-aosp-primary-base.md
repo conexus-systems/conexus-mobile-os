@@ -1,9 +1,9 @@
-# ADR-001: AOSP como Base Principal para Produto — **APROVADO**
+# ADR-001: AOSP como Base Principal para Produto — **SUBSTITUÍDO**
 
-**Status:** Aceito
+**Status:** Substituído por ADR-001 "LineageOS 23.2 como Base Principal" (2026-10-21). Mantido só como histórico.
 **Data:** 2026-10-19
 **Decisores:** Tech Lead (A0), Architect, Platform (A2), Security (A5)
-**Assinatura:** A0 ✅
+**Assinatura:** (anulada pela substituição)
 
 ---
 

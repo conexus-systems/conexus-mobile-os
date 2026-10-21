@@ -2,6 +2,7 @@
 
 **Status:** Aceito  
 **Data:** 21 de outubro de 2026  
+**Substitui:** ADR-001 "AOSP como Base Principal" (2026-10-19), em [superseded/](superseded/0001-aosp-primary-base.md)  
 **Decisores:** Tech Lead (A0), Architect, Platform (A2), Security (A5)  
 **Assinatura:** A0 ✅
 
