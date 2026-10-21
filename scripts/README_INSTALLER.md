@@ -6,8 +6,8 @@ Automated installer for Conexus Mobile OS that detects your device, downloads th
 
 - 🔍 **Auto-detection** - Detects connected device via ADB/fastboot
 - 📱 **Multi-device support** - Pixel 8a (primary), Nothing Phone 2 (backup)
-- 📦 **Auto-download** - Fetches correct build from GitHub Releases
-- ✅ **Verification** - SHA256 verification of downloads
+- 📦 **Auto-download** - Fetches correct build from GitHub Releases (`conexus-systems/conexus-mobile-os`)
+- ✅ **Verification** - SHA-256 obrigatório (lido do `SHA256SUMS` da release); sem hash válido o instalador recusa
 - 🔒 **Safety checks** - Battery, storage, bootloader status
 - 🔄 **OTA ready** - Sets up automatic updates
 - 🛡️ **Safety first** - Dry-run mode, confirmations, backup warnings
@@ -138,3 +138,20 @@ fastboot reboot
 ## License
 
 Apache-2.0 - See LICENSE file
+
+## Segurança do instalador (fail closed)
+
+- **Sem hash, sem instalação.** A release precisa ter um asset `SHA256SUMS` com a entrada do `.zip`. Não há "pular verificação".
+- **Autenticidade ainda não é verificada.** Só a integridade (SHA-256). A verificação de assinatura (`.asc`/minisign) depende da chave de release do A5 e não existe ainda.
+- **Extração segura.** O pacote só pode conter `.img`, `.txt` e `.json` no nível raiz; caminhos absolutos, `..`, subpastas, links simbólicos, excesso de entradas ou de tamanho são recusados. `boot.img`, `vbmeta.img` e `super.img` são obrigatórios.
+- **Aparelho certo.** O `fastboot getvar product` precisa ser igual ao codinome detectado, senão não grava nada.
+- **Autorização explícita.** Para gravar, digite a frase `FLASH <codinome> <serial>` mostrada na tela. `--dry-run` nunca grava.
+- **Sem release de demonstração.** Se não houver release publicada, o instalador diz que não encontrou e para.
+
+Antes de usar em qualquer aparelho, siga o ADR-005: o procedimento de recovery precisa estar testado. Hoje não há release publicada.
+
+## Testes
+
+```bash
+python3 -m unittest discover -s scripts/tests -v
+```
