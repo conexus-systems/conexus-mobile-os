@@ -37,6 +37,32 @@ pub struct TileContent {
     pub data: Option<serde_json::Value>,
 }
 
+/// Limite do `content.data` serializado: um app não infla a memória do tile engine.
+pub const MAX_TILE_DATA_BYTES: usize = 16 * 1024;
+
+impl TileContent {
+    /// `data`, quando presente, deve ser objeto e caber em `MAX_TILE_DATA_BYTES`.
+    pub fn validate(&self) -> Result<(), ValidationError> {
+        if let Some(data) = &self.data {
+            if !data.is_object() {
+                return Err(err("content.data", "deve ser um objeto"));
+            }
+            let size = serde_json::to_vec(data).map(|v| v.len()).unwrap_or(usize::MAX);
+            if size > MAX_TILE_DATA_BYTES {
+                return Err(err("content.data", format!("{size} bytes (máximo {MAX_TILE_DATA_BYTES})")));
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TileActivation {
+    #[serde(rename = "deepLink", default, skip_serializing_if = "Option::is_none")]
+    pub deep_link: Option<String>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TileUpdate {
@@ -53,6 +79,8 @@ pub struct TileManifest {
     pub size: TileSize,
     pub content: TileContent,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub activation: Option<TileActivation>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub update: Option<TileUpdate>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub badges: Vec<String>,
@@ -61,22 +89,23 @@ pub struct TileManifest {
 impl TileManifest {
     /// Regras do `tile-manifest.schema.json`.
     pub fn validate(&self) -> Result<(), ValidationError> {
-        let id = &self.tile_id;
-        let valid_id = !id.is_empty()
-            && id.len() <= 128
-            && id
-                .chars()
-                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || matches!(c, '.' | '_' | '-'))
-            && id.chars().next().map_or(false, |c| c.is_ascii_lowercase() || c.is_ascii_digit());
-        if !valid_id {
-            return Err(err("tileId", format!("'{id}' não casa com ^[a-z0-9][a-z0-9._-]{{0,127}}$")));
+        if !is_valid_tile_id(&self.tile_id) {
+            return Err(err("tileId", format!("'{}' não casa com ^[a-z0-9][a-z0-9._-]{{0,127}}$", self.tile_id)));
+        }
+        self.content.validate()?;
+        if let Some(link) = self.activation.as_ref().and_then(|a| a.deep_link.as_deref()) {
+            if !link.starts_with("conexus://") {
+                return Err(err("activation.deepLink", "não usa o esquema conexus://"));
+            }
         }
         if let Some(update) = &self.update {
-            if update.mode == UpdateMode::Periodic {
-                match update.period_minutes {
-                    Some(m) if m >= 15 => {}
-                    _ => return Err(err("update.periodMinutes", "obrigatório e ≥ 15 em modo periodic")),
+            // Mesma regra do schema: periodMinutes >= 15 sempre que presente, e obrigatório em periodic.
+            match update.period_minutes {
+                Some(m) if m < 15 => return Err(err("update.periodMinutes", "deve ser ≥ 15")),
+                None if update.mode == UpdateMode::Periodic => {
+                    return Err(err("update.periodMinutes", "obrigatório em modo periodic"))
                 }
+                _ => {}
             }
         }
         if let Some(bad) = self.badges.iter().find(|b| b.chars().count() > 3) {
@@ -84,4 +113,12 @@ impl TileManifest {
         }
         Ok(())
     }
+}
+
+/// `^[a-z0-9][a-z0-9._-]{0,127}$`
+pub(crate) fn is_valid_tile_id(id: &str) -> bool {
+    !id.is_empty()
+        && id.len() <= 128
+        && id.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || matches!(c, '.' | '_' | '-'))
+        && id.chars().next().map_or(false, |c| c.is_ascii_lowercase() || c.is_ascii_digit())
 }

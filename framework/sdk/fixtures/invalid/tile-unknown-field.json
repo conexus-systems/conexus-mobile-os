@@ -1,0 +1,15 @@
+{
+  "tileId": "clock.main",
+  "size": "W",
+  "content": {
+    "template": "text",
+    "data": {
+      "text": "12:00"
+    }
+  },
+  "update": {
+    "mode": "periodic",
+    "periodMinutes": 15
+  },
+  "extra": 1
+}

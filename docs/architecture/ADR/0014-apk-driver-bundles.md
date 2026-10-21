@@ -25,9 +25,9 @@ Fatos que sustentam a revisão:
 
 1. **Core Android único:** mesmos serviços e mesma ABI de driver em todos os devices (ADR-009).
 2. **Um APK por marca (bundle):** contém várias **variantes**, cada uma compilada para um `device` e um `kernel_release` exatos, com o KMI declarado.
-3. **Seleção:** o driver manager escolhe a única variante que casa com o `device` e o `kernel_release` do aparelho. Zero ou mais de uma é recusado. Se o KMI do módulo difere do kernel em execução, é recusado.
+3. **Seleção:** o driver manager seleciona **todas** as variantes que casam com o `device` e o `kernel_release` do aparelho (um driver por componente, ADR-009) e as instala de forma atômica: se qualquer uma falhar, nenhuma é instalada. Nenhuma variante que casa, ou duas variantes com o mesmo nome, é recusado. Se o KMI de um módulo difere do kernel em execução, é recusado.
 4. **Verificação em duas camadas:**
-   - Assinatura do pacote pelo driver manager (chave de driver do projeto, ADR-009).
+   - Assinatura do pacote pelo driver manager (chave de driver do projeto, ADR-009). A mensagem assinada cobre manifest, `device`, `kernel_release` e payload (`signing_message`, encoding canônico com tamanhos); trocar qualquer campo invalida a assinatura. **Estado:** a mensagem e a recusa existem e estão testadas; o verificador criptográfico (ed25519) e a custódia da chave **ainda não existem** (A5).
    - `CONFIG_MODULE_SIG_FORCE=y` no kernel: o próprio kernel recusa módulo sem assinatura válida. A chave pública de driver é embutida na construção do kernel.
 5. **Carregamento:** só por um serviço privilegiado do sistema (domínio SELinux próprio, a criar). Módulos instalados pelo usuário ficam em `/data`; `vendor_dlkm` é somente leitura e não é alterado.
 6. **Licença:** só entram módulos compilados da fonte GPL publicada. Módulos binários sem fonte passam por revisão do A5 e, se não puderem ser redistribuídos, ficam fora do bundle (o usuário extrai do próprio aparelho, fora do repo).
@@ -40,7 +40,7 @@ Fatos que sustentam a revisão:
 ### Positivas
 - Atende ao pedido: instalar drivers por um APK, por marca.
 - A confiança está na assinatura e no kernel, não no APK.
-- O código de seleção e recusa já existe e está testado no `conexus-core` (`DriverBundle`, `install_bundle`).
+- A seleção, a instalação atômica e a recusa por manifest/variante adulterados existem e estão testadas no `conexus-core` (`DriverBundle`, `install_bundle`, `signing_message`). Falta a verificação criptográfica real.
 
 ### Negativas
 - Cada atualização de kernel exige recompilar e reassinar as variantes.
@@ -61,9 +61,14 @@ Fatos que sustentam a revisão:
 |---|---|
 | APK que carrega o módulo por conta própria (root) | Dá privilégio de kernel a um app; anula a assinatura |
 | Sem bundle, um APK por modelo | Explosão de pacotes e de ciclos de atualização |
+| Selecionar uma única variante por (device, kernel) | Impede um driver por componente; trocado por seleção de todas as variantes do aparelho, com instalação atômica |
 | Só userspace (ADR-009 classe 1) | Não cobre hardware sem interface de userspace |
 
 ---
+
+## Pré-requisito aberto: `driver-core/` Java
+
+`driver-core/kernel/6.1/.../Kernel61.java` executa `insmod` com o nome do módulo sem sanitizar, sem assinatura e sem KMI. Enquanto existir e puder ser empacotado num APK de marca, a regra "o APK nunca recebe privilégio de kernel" não se sustenta. **Decisão pendente do A0/A5:** remover ou excluir explicitamente do bundle. Nenhum código de `driver-core/` entra em APK de marca.
 
 ## Plano
 

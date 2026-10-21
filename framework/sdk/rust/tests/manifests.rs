@@ -104,3 +104,12 @@ fn campo_desconhecido_e_rejeitado() {
     let json = APP.replace("\"tiles\"", "\"extra\": 1, \"tiles\"");
     assert!(serde_json::from_str::<AppManifest>(&json).is_err());
 }
+
+#[test]
+fn tile_data_acima_do_limite_e_rejeitado() {
+    use conexus_sdk::tile::MAX_TILE_DATA_BYTES;
+    let big = "x".repeat(MAX_TILE_DATA_BYTES);
+    let json = TILE.replace("\"12:00\"", &format!("\"{big}\""));
+    let tile: TileManifest = serde_json::from_str(&json).unwrap();
+    assert_eq!(tile.validate().unwrap_err().field, "content.data");
+}

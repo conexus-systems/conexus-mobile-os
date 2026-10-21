@@ -1,7 +1,7 @@
 use conexus_core::apps::{AppError, AppManager, LifecycleState};
 use conexus_core::drivers::{
-    DeviceInfo, DriverBundle, DriverError, DriverKind, DriverManager, DriverManifest, DriverPackage, DriverVariant,
-    SignatureVerifier,
+    signing_message, DeviceInfo, DriverBundle, DriverError, DriverKind, DriverManager, DriverManifest, DriverPackage,
+    DriverVariant, SignatureVerifier,
 };
 use conexus_core::notifications::{NotificationBroker, NotificationError, MAX_ACTIVE};
 use conexus_core::tiles::{TileEngine, TileError};
@@ -14,6 +14,7 @@ fn tile(id: &str, template: TileTemplate) -> TileManifest {
         tile_id: id.into(),
         size: TileSize::M,
         content: TileContent { template, data: None },
+        activation: None,
         update: Some(TileUpdate { mode: UpdateMode::Manual, period_minutes: None }),
         badges: vec![],
     }
@@ -314,12 +315,28 @@ fn bundle_com_kernel_diferente_nao_serve() {
 }
 
 #[test]
-fn bundle_ambiguo_e_recusado() {
+fn bundle_instala_todos_os_componentes_do_aparelho() {
     let bundle = DriverBundle {
         brand: "google".into(),
         variants: vec![
             variant("akita", "6.1.99-android14", "android14-6.1", "akita-touch", Some(b"ok")),
             variant("akita", "6.1.99-android14", "android14-6.1", "akita-camera", Some(b"ok")),
+            variant("other", "5.15.0", "android13-5.15", "other-touch", Some(b"ok")),
+        ],
+    };
+    let mut mgr = DriverManager::new(AcceptOk);
+    mgr.install_bundle(&bundle, &akita()).unwrap();
+    assert!(mgr.get("akita-touch").is_some() && mgr.get("akita-camera").is_some());
+    assert!(mgr.get("other-touch").is_none());
+}
+
+#[test]
+fn bundle_com_dois_pacotes_de_mesmo_nome_e_ambiguo() {
+    let bundle = DriverBundle {
+        brand: "google".into(),
+        variants: vec![
+            variant("akita", "6.1.99-android14", "android14-6.1", "akita-touch", Some(b"ok")),
+            variant("akita", "6.1.99-android14", "android14-6.1", "akita-touch", Some(b"ok")),
         ],
     };
     let mut mgr = DriverManager::new(AcceptOk);
@@ -328,6 +345,35 @@ fn bundle_ambiguo_e_recusado() {
         Err(DriverError::AmbiguousVariant { .. })
     ));
     assert_eq!(mgr.list().count(), 0);
+}
+
+#[test]
+fn bundle_e_atomico_se_um_componente_falha() {
+    let bundle = DriverBundle {
+        brand: "google".into(),
+        variants: vec![
+            variant("akita", "6.1.99-android14", "android14-6.1", "akita-touch", Some(b"ok")),
+            variant("akita", "6.1.99-android14", "android14-6.1", "akita-camera", None),
+        ],
+    };
+    let mut mgr = DriverManager::new(AcceptOk);
+    assert_eq!(mgr.install_bundle(&bundle, &akita()), Err(DriverError::Unsigned("akita-camera".into())));
+    assert_eq!(mgr.list().count(), 0, "nada instalado quando um componente falha");
+}
+
+#[test]
+fn rotulo_de_variante_trocado_invalida_a_assinatura() {
+    // Assinado para o device `akita`; o atacante re-rotula a variante para `other`.
+    let signed_for_akita = variant("akita", "6.1.99-android14", "android14-6.1", "akita-touch", Some(b"sig"));
+    let message = signing_message(
+        &signed_for_akita.package.manifest, "akita", "6.1.99-android14", &signed_for_akita.package.payload,
+    );
+    let mut relabeled = signed_for_akita.clone();
+    relabeled.device = "other".into();
+    let bundle = DriverBundle { brand: "google".into(), variants: vec![relabeled] };
+    let mut mgr = DriverManager::new(ExactMessage(message));
+    let other = DeviceInfo { device: "other".into(), kernel_release: "6.1.99-android14".into(), kmi: "android14-6.1".into() };
+    assert!(matches!(mgr.install_bundle(&bundle, &other), Err(DriverError::BadSignature(_))));
 }
 
 #[test]
@@ -362,4 +408,70 @@ fn bundle_sem_verificador_configurado_nao_instala() {
     };
     let mut mgr = DriverManager::default();
     assert!(matches!(mgr.install_bundle(&bundle, &akita()), Err(DriverError::BadSignature(_))));
+}
+
+// ---- assinatura cobre manifest e variante ----
+
+/// Aceita só a mensagem exata que foi "assinada": simula uma assinatura real sobre `signing_message`.
+struct ExactMessage(Vec<u8>);
+impl SignatureVerifier for ExactMessage {
+    fn verify(&self, message: &[u8], _signature: &[u8]) -> bool {
+        message == self.0.as_slice()
+    }
+}
+
+#[test]
+fn assinatura_invalida_se_o_kmi_do_manifest_muda() {
+    let original = driver("pixel-8a-touch", DriverKind::KernelModule, Some("android14-6.1"), Some(b"sig"));
+    let signed = signing_message(&original.manifest, "", "", &original.payload);
+    let mut mgr = DriverManager::new(ExactMessage(signed.clone()));
+    // Mesmo payload e mesma assinatura, KMI trocado: tem que ser recusado.
+    let mut tampered = original.clone();
+    tampered.manifest.kmi = Some("android13-5.15".into());
+    assert!(matches!(mgr.install(tampered), Err(DriverError::BadSignature(_))));
+    // O original passa.
+    mgr.install(original).unwrap();
+}
+
+#[test]
+fn assinatura_invalida_se_kind_ou_nome_mudam() {
+    let original = driver("pixel-8a-touch", DriverKind::KernelModule, Some("android14-6.1"), Some(b"sig"));
+    let signed = signing_message(&original.manifest, "", "", &original.payload);
+    for tweak in [
+        |p: &mut DriverPackage| p.manifest.kind = DriverKind::Userspace,
+        |p: &mut DriverPackage| p.manifest.name = "other-driver".into(),
+        |p: &mut DriverPackage| p.payload.push(0),
+    ] {
+        let mut mgr = DriverManager::new(ExactMessage(signed.clone()));
+        let mut t = original.clone();
+        tweak(&mut t);
+        assert!(matches!(mgr.install(t), Err(DriverError::BadSignature(_))));
+    }
+}
+
+#[test]
+fn pacote_nao_assinado_nao_revela_que_o_nome_existe() {
+    let mut mgr = DriverManager::new(AcceptOk);
+    mgr.install(driver("pixel-8a-camera", DriverKind::Userspace, None, Some(b"ok"))).unwrap();
+    let err = mgr.install(driver("pixel-8a-camera", DriverKind::Userspace, None, None)).unwrap_err();
+    assert_eq!(err, DriverError::Unsigned("pixel-8a-camera".into()));
+}
+
+#[test]
+fn tile_update_com_data_grande_e_rejeitado() {
+    let mut engine = TileEngine::new();
+    engine.register(tile("a.b", TileTemplate::Text)).unwrap();
+    let big = serde_json::json!({ "t": "x".repeat(conexus_sdk::tile::MAX_TILE_DATA_BYTES) });
+    let err = engine
+        .update("a.b", TileContent { template: TileTemplate::Text, data: Some(big) })
+        .unwrap_err();
+    assert!(matches!(err, TileError::Invalid(ref e) if e.field == "content.data"));
+}
+
+#[test]
+fn erros_implementam_display_e_error() {
+    fn assert_error<E: std::error::Error>(_: &E) {}
+    let e = TileError::NotFound("x".into());
+    assert_error(&e);
+    assert!(e.to_string().contains("NotFound"));
 }
