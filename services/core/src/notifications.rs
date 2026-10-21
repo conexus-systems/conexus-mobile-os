@@ -54,3 +54,11 @@ impl NotificationBroker {
         self.active.values()
     }
 }
+
+impl std::fmt::Display for NotificationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self:?}")
+    }
+}
+
+impl std::error::Error for NotificationError {}

@@ -1,0 +1,12 @@
+{
+  "id": "n1",
+  "channel": "mail",
+  "title": "Olá",
+  "actions": [
+    {
+      "type": "deepLink",
+      "label": "x",
+      "deepLink": "https://x.com"
+    }
+  ]
+}

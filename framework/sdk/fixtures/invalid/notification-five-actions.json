@@ -1,0 +1,27 @@
+{
+  "id": "n1",
+  "channel": "mail",
+  "title": "Olá",
+  "actions": [
+    {
+      "type": "button",
+      "label": "x"
+    },
+    {
+      "type": "button",
+      "label": "x"
+    },
+    {
+      "type": "button",
+      "label": "x"
+    },
+    {
+      "type": "button",
+      "label": "x"
+    },
+    {
+      "type": "button",
+      "label": "x"
+    }
+  ]
+}
