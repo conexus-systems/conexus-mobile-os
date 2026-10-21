@@ -60,6 +60,9 @@ impl Notification {
         if !channel_ok {
             return Err(err("channel", format!("'{}' inválido", self.channel)));
         }
+        if self.title.is_empty() {
+            return Err(err("title", "obrigatório"));
+        }
         if self.title.chars().count() > 200 {
             return Err(err("title", "mais de 200 caracteres"));
         }
