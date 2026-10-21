@@ -1,0 +1,16 @@
+{
+  "appId": "systems.conexus.reference",
+  "version": "0.1.0",
+  "entryPoint": {
+    "runtime": "kotlin"
+  },
+  "permissions": [
+    "tileUpdate"
+  ],
+  "deepLinks": [
+    "https://x.com"
+  ],
+  "tiles": [
+    "clock.main"
+  ]
+}

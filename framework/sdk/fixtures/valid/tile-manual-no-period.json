@@ -1,0 +1,10 @@
+{
+  "tileId": "a.b",
+  "size": "S",
+  "content": {
+    "template": "icon"
+  },
+  "update": {
+    "mode": "manual"
+  }
+}
