@@ -1,0 +1,13 @@
+{
+  "tileId": "mail.inbox",
+  "size": "M",
+  "content": {
+    "template": "icon"
+  },
+  "activation": {
+    "deepLink": "conexus://mail/inbox"
+  },
+  "badges": [
+    "3"
+  ]
+}

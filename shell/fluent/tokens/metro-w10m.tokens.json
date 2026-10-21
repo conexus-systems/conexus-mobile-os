@@ -1,5 +1,4 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$comment": "Tokens Metro/W10M do Conexus Shell (SDD §6.3). Valores originais; não copiados de binários da Microsoft. Os presets de accent são PLACEHOLDER: o SDD pede 21 cores, a lista final ainda não foi definida.",
   "version": "0.1.0",
   "font": {
@@ -18,8 +17,18 @@
   "accent": {
     "default": "#0078D7",
     "presets": [
-      "#0078D7", "#00A300", "#E51400", "#FA6800", "#6A00FF", "#00ABA9",
-      "#D80073", "#A4C400", "#F09609", "#825A2C", "#647687", "#00B294"
+      "#0078D7",
+      "#00A300",
+      "#E51400",
+      "#FA6800",
+      "#6A00FF",
+      "#00ABA9",
+      "#D80073",
+      "#A4C400",
+      "#F09609",
+      "#825A2C",
+      "#647687",
+      "#00B294"
     ],
     "custom": true,
     "minContrastRatio": 4.5
