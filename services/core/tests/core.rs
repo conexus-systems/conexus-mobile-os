@@ -1,5 +1,7 @@
 use conexus_core::apps::{AppError, AppManager, LifecycleState};
-use conexus_core::drivers::{DriverError, DriverKind, DriverManager, DriverManifest, DriverPackage, SignatureVerifier};
+use conexus_core::drivers::{
+    signing_message, DriverError, DriverKind, DriverManager, DriverManifest, DriverPackage, SignatureVerifier,
+};
 use conexus_core::notifications::{NotificationBroker, NotificationError, MAX_ACTIVE};
 use conexus_core::tiles::{TileEngine, TileError};
 use conexus_sdk::app::{AppManifest, EntryPoint, Permission, Runtime};
@@ -11,6 +13,7 @@ fn tile(id: &str, template: TileTemplate) -> TileManifest {
         tile_id: id.into(),
         size: TileSize::M,
         content: TileContent { template, data: None },
+        activation: None,
         update: Some(TileUpdate { mode: UpdateMode::Manual, period_minutes: None }),
         badges: vec![],
     }
@@ -253,4 +256,70 @@ fn modulo_de_kernel_com_kmi_e_assinatura_instala() {
     mgr.install(driver("pixel-8a-touch", DriverKind::KernelModule, Some("android14-6.1"), Some(b"ok")))
         .unwrap();
     assert_eq!(mgr.get("pixel-8a-touch").unwrap().kmi.as_deref(), Some("android14-6.1"));
+}
+
+// ---- assinatura cobre manifest e variante ----
+
+/// Aceita só a mensagem exata que foi "assinada": simula uma assinatura real sobre `signing_message`.
+struct ExactMessage(Vec<u8>);
+impl SignatureVerifier for ExactMessage {
+    fn verify(&self, message: &[u8], _signature: &[u8]) -> bool {
+        message == self.0.as_slice()
+    }
+}
+
+#[test]
+fn assinatura_invalida_se_o_kmi_do_manifest_muda() {
+    let original = driver("pixel-8a-touch", DriverKind::KernelModule, Some("android14-6.1"), Some(b"sig"));
+    let signed = signing_message(&original.manifest, "", "", &original.payload);
+    let mut mgr = DriverManager::new(ExactMessage(signed.clone()));
+    // Mesmo payload e mesma assinatura, KMI trocado: tem que ser recusado.
+    let mut tampered = original.clone();
+    tampered.manifest.kmi = Some("android13-5.15".into());
+    assert!(matches!(mgr.install(tampered), Err(DriverError::BadSignature(_))));
+    // O original passa.
+    mgr.install(original).unwrap();
+}
+
+#[test]
+fn assinatura_invalida_se_kind_ou_nome_mudam() {
+    let original = driver("pixel-8a-touch", DriverKind::KernelModule, Some("android14-6.1"), Some(b"sig"));
+    let signed = signing_message(&original.manifest, "", "", &original.payload);
+    for tweak in [
+        |p: &mut DriverPackage| p.manifest.kind = DriverKind::Userspace,
+        |p: &mut DriverPackage| p.manifest.name = "other-driver".into(),
+        |p: &mut DriverPackage| p.payload.push(0),
+    ] {
+        let mut mgr = DriverManager::new(ExactMessage(signed.clone()));
+        let mut t = original.clone();
+        tweak(&mut t);
+        assert!(matches!(mgr.install(t), Err(DriverError::BadSignature(_))));
+    }
+}
+
+#[test]
+fn pacote_nao_assinado_nao_revela_que_o_nome_existe() {
+    let mut mgr = DriverManager::new(AcceptOk);
+    mgr.install(driver("pixel-8a-camera", DriverKind::Userspace, None, Some(b"ok"))).unwrap();
+    let err = mgr.install(driver("pixel-8a-camera", DriverKind::Userspace, None, None)).unwrap_err();
+    assert_eq!(err, DriverError::Unsigned("pixel-8a-camera".into()));
+}
+
+#[test]
+fn tile_update_com_data_grande_e_rejeitado() {
+    let mut engine = TileEngine::new();
+    engine.register(tile("a.b", TileTemplate::Text)).unwrap();
+    let big = serde_json::json!({ "t": "x".repeat(conexus_sdk::tile::MAX_TILE_DATA_BYTES) });
+    let err = engine
+        .update("a.b", TileContent { template: TileTemplate::Text, data: Some(big) })
+        .unwrap_err();
+    assert!(matches!(err, TileError::Invalid(ref e) if e.field == "content.data"));
+}
+
+#[test]
+fn erros_implementam_display_e_error() {
+    fn assert_error<E: std::error::Error>(_: &E) {}
+    let e = TileError::NotFound("x".into());
+    assert_error(&e);
+    assert!(e.to_string().contains("NotFound"));
 }

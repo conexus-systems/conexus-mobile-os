@@ -50,6 +50,7 @@ impl TileEngine {
 
     /// Publica conteúdo novo para um tile já registrado. O template não pode mudar.
     pub fn update(&mut self, tile_id: &str, content: TileContent) -> Result<u64, TileError> {
+        content.validate()?;
         let state = self
             .tiles
             .get_mut(tile_id)
@@ -80,3 +81,11 @@ impl TileEngine {
         self.tiles.values()
     }
 }
+
+impl std::fmt::Display for TileError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self:?}")
+    }
+}
+
+impl std::error::Error for TileError {}

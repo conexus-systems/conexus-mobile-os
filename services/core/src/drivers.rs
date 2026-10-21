@@ -35,8 +35,36 @@ pub struct DriverPackage {
 
 /// Verificador de assinatura. A implementação real usa a chave de driver
 /// (ed25519, a definir pelo A5); aqui a interface fica isolada para teste.
+///
+/// `message` é sempre o resultado de [`signing_message`]: cobre o manifest, os metadados
+/// da variante e o payload, e não só o payload.
 pub trait SignatureVerifier {
-    fn verify(&self, payload: &[u8], signature: &[u8]) -> bool;
+    fn verify(&self, message: &[u8], signature: &[u8]) -> bool;
+}
+
+/// Encoding canônico do que é assinado: prefixo de versão, cada campo com tamanho
+/// de 4 bytes (big-endian) e o payload com tamanho de 8 bytes. Trocar `kmi`, `kind`,
+/// `name`, `device` ou `kernel_release` de um pacote assinado invalida a assinatura.
+/// Pacotes fora de bundle usam `device` e `kernel_release` vazios.
+pub fn signing_message(manifest: &DriverManifest, device: &str, kernel_release: &str, payload: &[u8]) -> Vec<u8> {
+    fn field(out: &mut Vec<u8>, bytes: &[u8]) {
+        out.extend_from_slice(&(bytes.len() as u32).to_be_bytes());
+        out.extend_from_slice(bytes);
+    }
+    let mut out = b"conexus-driver-v1\0".to_vec();
+    field(&mut out, manifest.name.as_bytes());
+    field(&mut out, manifest.version.as_bytes());
+    field(&mut out, manifest.component.as_bytes());
+    field(&mut out, &[match manifest.kind {
+        DriverKind::Userspace => 0,
+        DriverKind::KernelModule => 1,
+    }]);
+    field(&mut out, manifest.kmi.as_deref().unwrap_or("").as_bytes());
+    field(&mut out, device.as_bytes());
+    field(&mut out, kernel_release.as_bytes());
+    out.extend_from_slice(&(payload.len() as u64).to_be_bytes());
+    out.extend_from_slice(payload);
+    out
 }
 
 /// Verificador que recusa tudo. É o padrão de `DriverManager::new`.
@@ -63,6 +91,7 @@ impl From<ValidationError> for DriverError {
     }
 }
 
+#[derive(Debug)]
 pub struct DriverManager<V: SignatureVerifier> {
     verifier: V,
     installed: BTreeMap<String, DriverManifest>,
@@ -79,21 +108,33 @@ impl<V: SignatureVerifier> DriverManager<V> {
         Self { verifier, installed: BTreeMap::new() }
     }
 
-    /// Instala um pacote após validar manifest e assinatura.
+    /// Instala um pacote avulso (fora de bundle).
     pub fn install(&mut self, package: DriverPackage) -> Result<(), DriverError> {
-        validate_manifest(&package.manifest)?;
-        let name = package.manifest.name.clone();
-        if self.installed.contains_key(&name) {
-            return Err(DriverError::AlreadyInstalled(name));
-        }
+        self.install_with(&package, "", "")
+    }
+
+    /// Ordem das checagens: assinatura → manifest → duplicata. Um pacote não assinado
+    /// não descobre se o nome já existe. Só o manifest é guardado; o payload não é copiado.
+    pub(crate) fn install_with(
+        &mut self,
+        package: &DriverPackage,
+        device: &str,
+        kernel_release: &str,
+    ) -> Result<(), DriverError> {
+        let manifest = &package.manifest;
         let signature = package
             .signature
             .as_deref()
-            .ok_or_else(|| DriverError::Unsigned(name.clone()))?;
-        if !self.verifier.verify(&package.payload, signature) {
-            return Err(DriverError::BadSignature(name));
+            .ok_or_else(|| DriverError::Unsigned(manifest.name.clone()))?;
+        let message = signing_message(manifest, device, kernel_release, &package.payload);
+        if !self.verifier.verify(&message, signature) {
+            return Err(DriverError::BadSignature(manifest.name.clone()));
         }
-        self.installed.insert(name, package.manifest);
+        validate_manifest(manifest)?;
+        if self.installed.contains_key(&manifest.name) {
+            return Err(DriverError::AlreadyInstalled(manifest.name.clone()));
+        }
+        self.installed.insert(manifest.name.clone(), manifest.clone());
         Ok(())
     }
 
@@ -115,8 +156,17 @@ fn validate_manifest(m: &DriverManifest) -> Result<(), ValidationError> {
     if !name_ok {
         return Err(ValidationError { field: "name", reason: format!("'{}' inválido", m.name) });
     }
-    if m.component.is_empty() {
-        return Err(ValidationError { field: "component", reason: "obrigatório".into() });
+    let token_ok = |s: &str| {
+        !s.is_empty() && s.len() <= 64 && s.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_' | '+'))
+    };
+    if !token_ok(&m.version) {
+        return Err(ValidationError { field: "version", reason: format!("'{}' inválida", m.version) });
+    }
+    if !token_ok(&m.component) {
+        return Err(ValidationError { field: "component", reason: "obrigatório, até 64 caracteres [A-Za-z0-9._+-]".into() });
+    }
+    if m.kmi.as_deref().map_or(false, |k| !token_ok(k)) {
+        return Err(ValidationError { field: "kmi", reason: "KMI inválido".into() });
     }
     if m.kind == DriverKind::KernelModule && m.kmi.as_deref().map_or(true, str::is_empty) {
         return Err(ValidationError {
@@ -132,3 +182,11 @@ fn validate_manifest(m: &DriverManifest) -> Result<(), ValidationError> {
     }
     Ok(())
 }
+
+impl std::fmt::Display for DriverError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self:?}")
+    }
+}
+
+impl std::error::Error for DriverError {}
