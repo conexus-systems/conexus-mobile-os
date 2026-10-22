@@ -21,8 +21,15 @@ pub struct DriverManifest {
     /// Componente de hardware atendido, ex.: `camera`, `touch`.
     pub component: String,
     pub kind: DriverKind,
-    /// Versão do KMI exigida (só para módulo de kernel).
+    /// KMI do kernel GKI para o qual o módulo foi compilado, ex.: `android14-6.1`. Só existe em
+    /// kernels GKI; em kernels sem GKI (4.19, 5.4…) fica `None` e vale o `vermagic`.
     pub kmi: Option<String>,
+    /// `vermagic` exato do módulo (`modinfo -F vermagic`). **Obrigatório em módulo de kernel**: o
+    /// kernel recusa módulo cujo vermagic não bata com o dele ("Invalid module format").
+    pub vermagic: Option<String>,
+    /// Perfil do kernel (fonte, defconfig, toolchain) com que o módulo foi compilado. Se o kernel
+    /// do sistema mudar de perfil, o módulo deixa de servir mesmo que a versão seja a mesma.
+    pub kernel_profile: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -60,6 +67,8 @@ pub fn signing_message(manifest: &DriverManifest, device: &str, kernel_release: 
         DriverKind::KernelModule => 1,
     }]);
     field(&mut out, manifest.kmi.as_deref().unwrap_or("").as_bytes());
+    field(&mut out, manifest.vermagic.as_deref().unwrap_or("").as_bytes());
+    field(&mut out, manifest.kernel_profile.as_deref().unwrap_or("").as_bytes());
     field(&mut out, device.as_bytes());
     field(&mut out, kernel_release.as_bytes());
     out.extend_from_slice(&(payload.len() as u64).to_be_bytes());
@@ -89,6 +98,10 @@ pub enum DriverError {
     AmbiguousVariant { device: String, kernel_release: String },
     /// O KMI do módulo não é o do kernel instalado.
     KmiMismatch { expected: String, found: String },
+    /// O vermagic do módulo não é o do kernel em execução.
+    VermagicMismatch { expected: String, found: String },
+    /// O módulo foi compilado para outro perfil de kernel.
+    KernelProfileMismatch { expected: String, found: String },
 }
 
 /// Identificação do aparelho onde o bundle será instalado.
@@ -98,8 +111,64 @@ pub struct DeviceInfo {
     pub device: String,
     /// `uname -r` do kernel em execução.
     pub kernel_release: String,
-    /// KMI do kernel em execução, ex.: `android14-6.1`.
-    pub kmi: String,
+    /// KMI do kernel em execução (GKI), ex.: `android14-6.1`; `None` em kernel sem GKI.
+    /// Prefira derivar de `kernel_release` com [`kmi_from_release`] em vez de aceitar um valor declarado.
+    pub kmi: Option<String>,
+    /// `vermagic` do kernel em execução (o que o kernel compara ao do módulo).
+    pub vermagic: Option<String>,
+    /// Perfil do kernel instalado no sistema.
+    pub kernel_profile: Option<String>,
+}
+
+/// Deriva o KMI de `uname -r`: `6.1.75-android14-11-g…` → `android14-6.1`. Kernel sem o trecho
+/// `-androidNN-` (não GKI) devolve `None`.
+pub fn kmi_from_release(release: &str) -> Option<String> {
+    let mut nums = release.split(|c: char| !c.is_ascii_digit());
+    let major: u32 = nums.next()?.parse().ok()?;
+    let minor: u32 = nums.next()?.parse().ok()?;
+    let rest = release.split_once('-')?.1;
+    let gen = rest.split('-').find(|p| {
+        p.strip_prefix("android").map_or(false, |n| !n.is_empty() && n.chars().all(|c| c.is_ascii_digit()))
+    })?;
+    Some(format!("{gen}-{major}.{minor}"))
+}
+
+/// Confere se um módulo de kernel serve ao kernel em execução: vermagic idêntico, KMI igual (se o
+/// módulo declara um) e mesmo perfil de kernel (se declara um). Driver de userspace sempre serve.
+pub fn check_kernel_match(m: &DriverManifest, dev: &DeviceInfo) -> Result<(), DriverError> {
+    if m.kind != DriverKind::KernelModule {
+        return Ok(());
+    }
+    let want = m.vermagic.as_deref().unwrap_or("");
+    match dev.vermagic.as_deref() {
+        None => {
+            return Err(DriverError::Invalid(ValidationError {
+                field: "vermagic",
+                reason: "o aparelho não informou o vermagic do kernel; não dá para confirmar compatibilidade".into(),
+            }))
+        }
+        Some(have) if have != want => {
+            return Err(DriverError::VermagicMismatch { expected: have.to_string(), found: want.to_string() })
+        }
+        Some(_) => {}
+    }
+    if let Some(k) = m.kmi.as_deref() {
+        if dev.kmi.as_deref() != Some(k) {
+            return Err(DriverError::KmiMismatch {
+                expected: dev.kmi.clone().unwrap_or_else(|| "(kernel sem GKI)".into()),
+                found: k.to_string(),
+            });
+        }
+    }
+    if let Some(p) = m.kernel_profile.as_deref() {
+        if dev.kernel_profile.as_deref() != Some(p) {
+            return Err(DriverError::KernelProfileMismatch {
+                expected: dev.kernel_profile.clone().unwrap_or_default(),
+                found: p.to_string(),
+            });
+        }
+    }
+    Ok(())
 }
 
 /// Uma variante do bundle: pacote compilado para um device e um kernel exatos.
@@ -203,22 +272,24 @@ impl<V: SignatureVerifier> DriverManager<V> {
             }
         }
         for v in &selected {
-            let m = &v.package.manifest;
-            if m.kind == DriverKind::KernelModule {
-                match m.kmi.as_deref() {
-                    Some(kmi) if kmi != device.kmi => {
-                        return Err(DriverError::KmiMismatch { expected: device.kmi.clone(), found: kmi.to_string() })
-                    }
-                    Some(_) => {}
-                    None => return Err(DriverError::Invalid(ValidationError { field: "kmi", reason: "módulo de kernel precisa declarar o KMI".into() })),
-                }
-            }
+            check_kernel_match(&v.package.manifest, device)?;
             self.check_install(&v.package, &v.device, &v.kernel_release)?;
         }
         for v in selected {
             self.installed.insert(v.package.manifest.name.clone(), v.package.manifest.clone());
         }
         Ok(())
+    }
+
+    /// Nomes dos módulos de kernel instalados que **não servem** ao kernel atual. Use depois de
+    /// trocar ou alterar o kernel (OTA, kernel próprio): esses módulos precisam ser desativados e
+    /// recompilados. Drivers de userspace nunca aparecem aqui.
+    pub fn incompatible(&self, device: &DeviceInfo) -> Vec<String> {
+        self.installed
+            .values()
+            .filter(|m| check_kernel_match(m, device).is_err())
+            .map(|m| m.name.clone())
+            .collect()
     }
 
     pub fn get(&self, name: &str) -> Option<&DriverManifest> {
@@ -251,17 +322,27 @@ fn validate_manifest(m: &DriverManifest) -> Result<(), ValidationError> {
     if m.kmi.as_deref().map_or(false, |k| !token_ok(k)) {
         return Err(ValidationError { field: "kmi", reason: "KMI inválido".into() });
     }
-    if m.kind == DriverKind::KernelModule && m.kmi.as_deref().map_or(true, str::is_empty) {
-        return Err(ValidationError {
-            field: "kmi",
-            reason: "módulo de kernel precisa declarar o KMI".into(),
-        });
+    if m.kernel_profile.as_deref().map_or(false, |p| !token_ok(p)) {
+        return Err(ValidationError { field: "kernel_profile", reason: "perfil de kernel inválido".into() });
     }
-    if m.kind == DriverKind::Userspace && m.kmi.is_some() {
-        return Err(ValidationError {
-            field: "kmi",
-            reason: "driver de userspace não declara KMI".into(),
-        });
+    let vermagic_ok = |v: &str| (1..=256).contains(&v.len()) && v.chars().all(|c| c.is_ascii_graphic() || c == ' ');
+    match m.kind {
+        DriverKind::KernelModule => {
+            if !m.vermagic.as_deref().map_or(false, vermagic_ok) {
+                return Err(ValidationError {
+                    field: "vermagic",
+                    reason: "módulo de kernel precisa declarar o vermagic exato (ASCII imprimível, até 256)".into(),
+                });
+            }
+        }
+        DriverKind::Userspace => {
+            if m.kmi.is_some() || m.vermagic.is_some() || m.kernel_profile.is_some() {
+                return Err(ValidationError {
+                    field: "kmi",
+                    reason: "driver de userspace não declara KMI, vermagic nem perfil de kernel".into(),
+                });
+            }
+        }
     }
     Ok(())
 }

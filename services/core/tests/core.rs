@@ -1,6 +1,6 @@
 use conexus_core::apps::{AppError, AppManager, LifecycleState};
 use conexus_core::drivers::{
-    signing_message, DeviceInfo, DriverBundle, DriverError, DriverKind, DriverManager, DriverManifest, DriverPackage,
+    kmi_from_release, signing_message, DeviceInfo, DriverBundle, DriverError, DriverKind, DriverManager, DriverManifest, DriverPackage,
     DriverVariant, SignatureVerifier,
 };
 use conexus_core::notifications::{NotificationBroker, NotificationError, MAX_ACTIVE};
@@ -190,6 +190,9 @@ impl SignatureVerifier for AcceptOk {
     }
 }
 
+/// vermagic do kernel de teste: o módulo e o aparelho precisam concordar nele.
+const VM: &str = "6.1.99-android14-11-g0a1b2c SMP preempt mod_unload modversions aarch64";
+
 fn driver(name: &str, kind: DriverKind, kmi: Option<&str>, sig: Option<&[u8]>) -> DriverPackage {
     DriverPackage {
         manifest: DriverManifest {
@@ -198,6 +201,8 @@ fn driver(name: &str, kind: DriverKind, kmi: Option<&str>, sig: Option<&[u8]>) -
             component: "camera".into(),
             kind,
             kmi: kmi.map(str::to_string),
+            vermagic: (kind == DriverKind::KernelModule).then(|| VM.to_string()),
+            kernel_profile: None,
         },
         payload: b"bytes".to_vec(),
         signature: sig.map(<[u8]>::to_vec),
@@ -234,21 +239,26 @@ fn driver_com_assinatura_valida_instala_e_nao_duplica() {
 }
 
 #[test]
-fn modulo_de_kernel_exige_kmi() {
+fn modulo_de_kernel_exige_vermagic() {
     let mut mgr = DriverManager::new(AcceptOk);
-    let err = mgr
-        .install(driver("pixel-8a-touch", DriverKind::KernelModule, None, Some(b"ok")))
-        .unwrap_err();
-    assert!(matches!(err, DriverError::Invalid(ref e) if e.field == "kmi"));
+    let mut p = driver("pixel-8a-touch", DriverKind::KernelModule, Some("android14-6.1"), Some(b"ok"));
+    p.manifest.vermagic = None;
+    let err = mgr.install(p).unwrap_err();
+    assert!(matches!(err, DriverError::Invalid(ref e) if e.field == "vermagic"));
 }
 
 #[test]
-fn userspace_nao_declara_kmi() {
-    let mut mgr = DriverManager::new(AcceptOk);
-    let err = mgr
-        .install(driver("pixel-8a-touch", DriverKind::Userspace, Some("android14-6.1"), Some(b"ok")))
-        .unwrap_err();
-    assert!(matches!(err, DriverError::Invalid(ref e) if e.field == "kmi"));
+fn userspace_nao_declara_kmi_vermagic_nem_perfil() {
+    for tweak in [
+        |m: &mut DriverManifest| m.kmi = Some("android14-6.1".into()),
+        |m: &mut DriverManifest| m.vermagic = Some(VM.into()),
+        |m: &mut DriverManifest| m.kernel_profile = Some("perfil-a".into()),
+    ] {
+        let mut mgr = DriverManager::new(AcceptOk);
+        let mut p = driver("pixel-8a-touch", DriverKind::Userspace, None, Some(b"ok"));
+        tweak(&mut p.manifest);
+        assert!(matches!(mgr.install(p).unwrap_err(), DriverError::Invalid(_)));
+    }
 }
 
 #[test]
@@ -270,7 +280,13 @@ fn variant(device: &str, kernel: &str, kmi: &str, name: &str, sig: Option<&[u8]>
 }
 
 fn akita() -> DeviceInfo {
-    DeviceInfo { device: "akita".into(), kernel_release: "6.1.99-android14".into(), kmi: "android14-6.1".into() }
+    DeviceInfo {
+        device: "akita".into(),
+        kernel_release: "6.1.99-android14".into(),
+        kmi: Some("android14-6.1".into()),
+        vermagic: Some(VM.into()),
+        kernel_profile: None,
+    }
 }
 
 #[test]
@@ -372,7 +388,7 @@ fn rotulo_de_variante_trocado_invalida_a_assinatura() {
     relabeled.device = "other".into();
     let bundle = DriverBundle { brand: "google".into(), variants: vec![relabeled] };
     let mut mgr = DriverManager::new(ExactMessage(message));
-    let other = DeviceInfo { device: "other".into(), kernel_release: "6.1.99-android14".into(), kmi: "android14-6.1".into() };
+    let other = DeviceInfo { device: "other".into(), ..akita() };
     assert!(matches!(mgr.install_bundle(&bundle, &other), Err(DriverError::BadSignature(_))));
 }
 
@@ -474,4 +490,101 @@ fn erros_implementam_display_e_error() {
     let e = TileError::NotFound("x".into());
     assert_error(&e);
     assert!(e.to_string().contains("NotFound"));
+}
+
+// ---- o kernel do sistema precisa bater com o kernel do módulo ----
+
+fn bundle_one(vermagic: &str, kmi: Option<&str>, profile: Option<&str>) -> DriverBundle {
+    let mut v = variant("akita", "6.1.99-android14", "android14-6.1", "akita-touch", Some(b"ok"));
+    v.package.manifest.vermagic = Some(vermagic.into());
+    v.package.manifest.kmi = kmi.map(str::to_string);
+    v.package.manifest.kernel_profile = profile.map(str::to_string);
+    DriverBundle { brand: "google".into(), variants: vec![v] }
+}
+
+#[test]
+fn vermagic_diferente_e_recusado_e_nada_instala() {
+    let mut mgr = DriverManager::new(AcceptOk);
+    let err = mgr.install_bundle(&bundle_one("6.1.99-android14 SMP outro", Some("android14-6.1"), None), &akita()).unwrap_err();
+    assert!(matches!(err, DriverError::VermagicMismatch { .. }));
+    assert_eq!(mgr.list().count(), 0);
+}
+
+#[test]
+fn aparelho_sem_vermagic_nao_confirma_compatibilidade() {
+    let mut mgr = DriverManager::new(AcceptOk);
+    let mut dev = akita();
+    dev.vermagic = None;
+    let err = mgr.install_bundle(&bundle_one(VM, Some("android14-6.1"), None), &dev).unwrap_err();
+    assert!(matches!(err, DriverError::Invalid(ref e) if e.field == "vermagic"));
+}
+
+#[test]
+fn kernel_sem_gki_aceita_modulo_sem_kmi_mas_exige_vermagic_igual() {
+    let mut dev = akita();
+    dev.kmi = None;
+    let mut mgr = DriverManager::new(AcceptOk);
+    mgr.install_bundle(&bundle_one(VM, None, None), &dev).unwrap();
+    // um módulo que declara KMI não serve a um kernel sem GKI
+    let mut mgr2 = DriverManager::new(AcceptOk);
+    let err = mgr2.install_bundle(&bundle_one(VM, Some("android14-6.1"), None), &dev).unwrap_err();
+    assert!(matches!(err, DriverError::KmiMismatch { .. }));
+}
+
+#[test]
+fn perfil_de_kernel_diferente_e_recusado_mesmo_com_mesma_versao() {
+    let mut dev = akita();
+    dev.kernel_profile = Some("perfil-b".into());
+    let mut mgr = DriverManager::new(AcceptOk);
+    let err = mgr.install_bundle(&bundle_one(VM, Some("android14-6.1"), Some("perfil-a")), &dev).unwrap_err();
+    assert!(matches!(err, DriverError::KernelProfileMismatch { .. }));
+    dev.kernel_profile = Some("perfil-a".into());
+    mgr.install_bundle(&bundle_one(VM, Some("android14-6.1"), Some("perfil-a")), &dev).unwrap();
+}
+
+#[test]
+fn alterar_o_kernel_deixa_modulos_incompativeis_e_poupa_userspace() {
+    let mut dev = akita();
+    dev.kernel_profile = Some("perfil-a".into());
+    let mut mgr = DriverManager::new(AcceptOk);
+    mgr.install_bundle(&bundle_one(VM, Some("android14-6.1"), Some("perfil-a")), &dev).unwrap();
+    mgr.install(driver("akita-hal-vibrator", DriverKind::Userspace, None, Some(b"ok"))).unwrap();
+    assert!(mgr.incompatible(&dev).is_empty(), "com o kernel de origem tudo serve");
+
+    // o kernel foi recompilado com outra configuração: novo vermagic e novo perfil
+    let mut novo = dev.clone();
+    novo.vermagic = Some("6.1.99-android14-11-g0a1b2c SMP preempt mod_unload aarch64".into());
+    novo.kernel_profile = Some("perfil-b".into());
+    assert_eq!(mgr.incompatible(&novo), vec!["akita-touch".to_string()]);
+}
+
+#[test]
+fn assinatura_cobre_vermagic_e_perfil() {
+    let original = driver("pixel-8a-touch", DriverKind::KernelModule, Some("android14-6.1"), Some(b"sig"));
+    let signed = signing_message(&original.manifest, "", "", &original.payload);
+    for tweak in [
+        |p: &mut DriverPackage| p.manifest.vermagic = Some("outro".into()),
+        |p: &mut DriverPackage| p.manifest.kernel_profile = Some("perfil-x".into()),
+    ] {
+        let mut mgr = DriverManager::new(ExactMessage(signed.clone()));
+        let mut t = original.clone();
+        tweak(&mut t);
+        assert!(matches!(mgr.install(t), Err(DriverError::BadSignature(_))));
+    }
+}
+
+#[test]
+fn kmi_e_derivado_do_uname() {
+    for (rel, want) in [
+        ("6.1.75-android14-11-g123abc", Some("android14-6.1")),
+        ("5.10.198-android12-9-00001-gabc", Some("android12-5.10")),
+        ("6.6.30-android15-8-g1", Some("android15-6.6")),
+        ("4.19.191-perf+", None),
+        ("6.1.0-generic", None),
+        ("5.4.0-android-x", None),
+        ("", None),
+        ("abc", None),
+    ] {
+        assert_eq!(kmi_from_release(rel).as_deref(), want, "{rel}");
+    }
 }
