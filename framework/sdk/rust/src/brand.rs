@@ -19,6 +19,7 @@ pub enum Brand {
     Xiaomi,
     Motorola,
     Tcl,
+    Realme,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -132,8 +133,8 @@ impl BrandModule {
             let n = &d.codename;
             let ok = !n.is_empty()
                 && n.len() <= 64
-                && n.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || matches!(c, '_' | '-'))
-                && n.starts_with(|c: char| c.is_ascii_lowercase() || c.is_ascii_digit());
+                && n.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-' | '.'))
+                && n.starts_with(|c: char| c.is_ascii_alphanumeric());
             if !ok {
                 return Err(err("devices.codename", format!("'{n}' inválido")));
             }
