@@ -15,7 +15,7 @@ import java.util.concurrent.*;
  */
 public class Kernel61 implements IKernelInterface {
     private static final String TAG = "Kernel61";
-    private final KernelModuleManager moduleManager;
+    private final IKernelModuleManager moduleManager;
     private final KernelConfig config;
     private final KernelDeviceTree deviceTree;
     private final KernelBoot boot;
@@ -120,6 +120,9 @@ public class Kernel61 implements IKernelInterface {
     @Override
     @NonNull
     public CommandResult executeCommand(@NonNull String command, @Nullable String[] args) {
+        if (!KernelCommandPolicy.isAllowed(command, args)) {
+            return new CommandResult(-1, "", "Command not allowed: " + command, 0);
+        }
         try {
             List<String> cmdList = new ArrayList<>();
             cmdList.add(command);
@@ -207,7 +210,7 @@ public class Kernel61 implements IKernelInterface {
     }
 
     @Override
-    public KernelModuleManager getModuleManager() {
+    public IKernelModuleManager getModuleManager() {
         return moduleManager;
     }
 
@@ -375,33 +378,20 @@ public class Kernel61 implements IKernelInterface {
 }
 
 // Kernel Module Manager Implementation
-class KernelModuleManagerImpl implements KernelModuleManager {
+//
+// Carregar e descarregar módulos NÃO é feito aqui. O antigo insmod/rmmod direto (nome sem
+// validação, sem assinatura e sem KMI) foi removido: o carregamento é do conexus-driver-manager,
+// serviço de sistema que verifica a assinatura sobre manifest, variante e payload e usa
+// finit_module com CONFIG_MODULE_SIG_FORCE (ADR-009, ADR-014). Aqui só há consulta.
+class KernelModuleManagerImpl implements IKernelModuleManager {
     @Override
     public boolean loadModule(@NonNull String moduleName, @Nullable String[] args) {
-        try {
-            List<String> cmd = new ArrayList<>();
-            cmd.add("insmod");
-            cmd.add("/vendor/lib/modules/" + moduleName + ".ko");
-            if (args != null) {
-                Collections.addAll(cmd, args);
-            }
-            ProcessBuilder pb = new ProcessBuilder(cmd);
-            Process process = pb.start();
-            return process.waitFor() == 0;
-        } catch (Exception e) {
-            return false;
-        }
+        return false;
     }
 
     @Override
     public boolean unloadModule(@NonNull String moduleName) {
-        try {
-            ProcessBuilder pb = new ProcessBuilder("rmmod", moduleName);
-            Process process = pb.start();
-            return process.waitFor() == 0;
-        } catch (Exception e) {
-            return false;
-        }
+        return false;
     }
 
     @Override
@@ -502,7 +492,7 @@ class KernelConfigImpl implements KernelConfig {
     @Override
     @NonNull
     public Map<String, String> getAllConfigs() {
-        Map<String, String> result = new HashMap<>();
+        Map<String, String> configs = new HashMap<>();
         try {
             ProcessBuilder pb = new ProcessBuilder("zcat", "/proc/config.gz");
             Process process = pb.start();
@@ -514,9 +504,9 @@ class KernelConfigImpl implements KernelConfig {
                         configs.put(parts[0], parts[1]);
                     }
                 }
-            } catch (Exception e) {
-                // Ignore
             }
+        } catch (Exception e) {
+            // Ignore
         }
         return configs;
     }
