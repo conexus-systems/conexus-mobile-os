@@ -141,7 +141,7 @@
 |-------|-------|
 | **Device Primário** | **Google Pixel 8a (akita)** |
 | **Device Backup** | **Nothing Phone (2) (pong)** |
-| **AOSP Tag** | `android-15.0.0_r1` (ou `android-latest-release` para Android 16 QPR) |
+| **AOSP Tag** | `android-16.0.0_r4` (tag base do manifest `lineage-23.2`, verificado em 2026-10-22) |
 | **Kernel Tag/Branch** | `android-gs-akita-6.1-android16` (GKI) |
 | **Manifest Repo** | `platforms/android/manifest/` (a criar) |
 | **Boot/Recovery Testado** | [ ] Sim — Data: ___ Logs: ___ |

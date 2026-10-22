@@ -31,7 +31,7 @@ Cada recurso do Conexus é um módulo que pode ser incluído, removido e atualiz
 O sistema-base precisa **inicializar e funcionar sem nenhum módulo Conexus**. Isso é teste de aceite (SYS-001).
 
 ### 3. Launcher padrão
-O Conexus Launcher (`conexus-systems/conexus-launcher`, hoje na 0.32.0) é o launcher padrão da imagem e o papel HOME é atribuído a ele na construção da imagem. Continua um módulo separado, com repositório e ciclo de versões próprios (ADR-002 do export), e o usuário pode trocar de launcher como em qualquer Android. Como atribuir o papel HOME no build do LineageOS (overlay de recursos do framework) precisa ser confirmado no código-fonte da versão fixada; não está verificado.
+O Conexus Launcher (`conexus-systems/conexus-launcher`, hoje na 0.32.0) é o launcher padrão da imagem e o papel HOME é atribuído a ele na construção da imagem. Continua um módulo separado, com repositório e ciclo de versões próprios (ADR-002 do export), e o usuário pode trocar de launcher como em qualquer Android. O papel HOME **não tem holder padrão por configuração**: o Android escolhe a atividade HOME de maior `priority` e, em empate, pergunta ao usuário. Basta o Conexus Launcher ser o HOME de maior prioridade na imagem, sem patch no framework. O `Launcher3QuickStep` do LineageOS também é o provedor de Recentes e gestos, então a recomendação é mantê-lo instalado e só mudar quem é o HOME. Detalhes e evidência em `docs/architecture/LINEAGE_23_2_VERIFICATION.md`; o comportamento de Recentes e gestos ainda precisa de teste em aparelho.
 
 ### 4. Play Store e GApps
 A imagem **não inclui** Play Store, Google Play Services nem apps Google. O LineageOS já se comporta assim. Regras:
@@ -42,7 +42,7 @@ A imagem **não inclui** Play Store, Google Play Services nem apps Google. O Lin
 ### 5. Linguagens padrão: Rust e Go
 | Camada | Linguagem | Observação |
 |---|---|---|
-| Serviços de sistema, driver manager, validação de pacotes e manifests, HALs novos | **Rust** | Suportado no build do AOSP (Soong); backend AIDL em Rust existe. Verificar na versão fixada |
+| Serviços de sistema, driver manager, validação de pacotes e manifests, HALs novos | **Rust** | Verificado em 2026-10-22: `lineage-23.2` tem os módulos `rust_binary`/`rust_binary_host` no Soong, e o tag `android-16.0.0_r4` tem o backend AIDL em Rust. Falta compilar um serviço nosso |
 | Ferramentas de host: instalador, servidor OTA, pipeline de release, ferramentas do lab de dispositivos | **Go** | Binário único estático, multiplataforma (Linux, macOS, Windows). Substitui o instalador em Python |
 | Daemons nativos no aparelho sem dependência de API Android | Go (estático, `CGO_ENABLED=0`) | Só se for realmente necessário. Não faz parte da árvore de build da plataforma |
 | UI Android (Conexus Launcher, teclado) | **Kotlin** (exceção) | O SDK Android é JVM. Regra de negócio testável vai para o núcleo em Rust via JNI, como já feito no teclado (PR #43 do launcher) |
@@ -63,15 +63,15 @@ A imagem **não inclui** Play Store, Google Play Services nem apps Google. O Lin
 - Reescrever os HALs do `driver-core` em Rust é trabalho maior do que fazer o Java compilar. **Isto ajusta o ADR-015:** o `driver-core` Java passa a ser referência de leitura e não a base de código final.
 
 ### Riscos
-- **R-RUST-AOSP:** o suporte a Rust na plataforma depende da versão do AOSP/LineageOS. Mitigação: confirmar na versão fixada antes de escrever o primeiro serviço de plataforma.
+- **R-RUST-AOSP:** suporte a Rust confirmado na versão fixada (ver verificação). Risco residual: um serviço nosso ainda não foi compilado na árvore.
 - **R-GAPPS:** apps que exigem Google Play Services não funcionam sem GApps ou microG. Mitigação: documentar e deixar o instalador explicar.
-- **R-HOME:** a atribuição do papel HOME no build não está confirmada. Mitigação: verificar no código da versão fixada.
+- **R-HOME:** o mecanismo está confirmado (prioridade do intent-filter HOME). Risco: Recentes e gestos com outro HOME. Mitigação: manter o `Launcher3QuickStep` como provedor de Recentes e testar em aparelho.
 
 ## Plano
 
 1. **A4:** portar a camada de segurança do instalador para Go (`tools/installer`), com os mesmos casos de teste do Python. Feito neste PR: pacote `safety` e testes.
 2. **A4:** portar o restante do instalador (detecção, download, fastboot) para Go e aposentar o Python.
-3. **A2:** confirmar suporte a Rust no build da versão fixada do LineageOS e o mecanismo para definir o HOME padrão.
+3. **A2:** ~~confirmar suporte a Rust e o mecanismo do HOME padrão~~ feito (`LINEAGE_23_2_VERIFICATION.md`). Resta testar Recentes e gestos em aparelho e compilar o primeiro serviço Rust na árvore.
 4. **A4:** escrever o primeiro HAL de uma marca em Rust (Google), usando o `driver-core` Java como referência.
 5. **A5:** ADR de microG e *signature spoofing*, se for adotado.
 6. **A6:** teste de aceite "apps Android com módulos ligados e desligados".

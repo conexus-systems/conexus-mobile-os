@@ -8,12 +8,12 @@ description: "Sistema operacional móvel open source baseado no LineageOS 23.2, 
   <div class="container">
     <div class="hero-content">
       <h1>Conexus Mobile OS</h1>
-      <p class="hero-subtitle">Sistema operacional móvel open source baseado no <strong>LineageOS 23.2 (Android 15)</strong>, com experiência <strong>Windows 10 Mobile</strong> (Live Tiles, Metro UI) e <strong>Conexus Launcher</strong> como padrão.</p>
+      <p class="hero-subtitle">Sistema operacional móvel open source baseado no <strong>LineageOS 23.2 (Android 16)</strong>, com experiência <strong>Windows 10 Mobile</strong> (Live Tiles, Metro UI) e <strong>Conexus Launcher</strong> como padrão.</p>
       
       <div class="hero-badges">
         <span class="badge badge-opensource">Open Source (Apache-2.0)</span>
         <span class="badge badge-lineageos">Base: LineageOS 23.2</span>
-        <span class="badge badge-android">Android 15 QPR</span>
+        <span class="badge badge-android">Android 16</span>
         <span class="badge badge-metro">Metro/W10M UI</span>
       </div>
       
