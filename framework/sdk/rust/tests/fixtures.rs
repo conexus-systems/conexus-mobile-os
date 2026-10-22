@@ -40,7 +40,7 @@ fn check(folder: &str, expect: bool) -> usize {
 
 #[test]
 fn fixtures_validas_sao_aceitas() {
-    assert!(check("valid", true) >= 9);
+    assert!(check("valid", true) >= 10);
 }
 
 #[test]
@@ -65,5 +65,5 @@ fn descritores_de_marca_do_repositorio_sao_validos() {
         }
         n += 1;
     }
-    assert!(n >= 7, "esperados descritores das 7 marcas, achei {n}");
+    assert!(n >= 8, "esperados descritores das 8 marcas, achei {n}");
 }

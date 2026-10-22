@@ -18,6 +18,7 @@ pub enum Brand {
     Samsung,
     Xiaomi,
     Motorola,
+    Tcl,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
