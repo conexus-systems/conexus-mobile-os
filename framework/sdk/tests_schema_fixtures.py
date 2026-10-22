@@ -15,6 +15,7 @@ SCHEMAS = {
     "tile": ROOT / "shared/tile-manifest.schema.json",
     "app": ROOT / "shared/app-manifest.schema.json",
     "notification": ROOT / "shared/notification.schema.json",
+    "brand": ROOT / "shared/brand-module.schema.json",
 }
 validators = {}
 for kind, path in SCHEMAS.items():

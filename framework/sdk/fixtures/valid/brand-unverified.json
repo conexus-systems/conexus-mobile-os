@@ -1,0 +1,9 @@
+{
+  "brand": "xiaomi",
+  "sub_brands": [
+    "poco",
+    "redmi"
+  ],
+  "status": "unverified",
+  "hal_source": "driver-core/vendors/src/main/java/com/conexus/driver/vendors/xiaomi/XiaomiVendorHal.java"
+}

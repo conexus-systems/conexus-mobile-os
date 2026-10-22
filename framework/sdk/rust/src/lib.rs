@@ -5,6 +5,7 @@
 //! (tile-engine, notifications, app-manager) validem manifests da mesma forma.
 
 pub mod app;
+pub mod brand;
 pub mod notification;
 pub mod tile;
 

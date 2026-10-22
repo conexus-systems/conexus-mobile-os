@@ -66,9 +66,9 @@ Fatos que sustentam a revisão:
 
 ---
 
-## Pré-requisito aberto: `driver-core/` Java
+## `driver-core/` Java
 
-`driver-core/kernel/6.1/.../Kernel61.java` executa `insmod` com o nome do módulo sem sanitizar, sem assinatura e sem KMI. Enquanto existir e puder ser empacotado num APK de marca, a regra "o APK nunca recebe privilégio de kernel" não se sustenta. **Decisão pendente do A0/A5:** remover ou excluir explicitamente do bundle. Nenhum código de `driver-core/` entra em APK de marca.
+Resolvido pelo ADR-015: o `driver-core` fica como base dos HALs de userspace por marca, sem nenhuma execução privilegiada. O `insmod` direto de `Kernel61.java` foi removido; carregar módulo é só do `conexus-driver-manager`. O `driver-core` ainda não compila, então nenhum código dele entra num APK de marca antes de compilar e passar nos testes.
 
 ## Plano
 

@@ -1,0 +1,5 @@
+{
+  "brand": "nothing",
+  "status": "unverified",
+  "hal_source": "driver-core/vendors/src/main/java/com/conexus/driver/vendors/nothing/NothingVendorHal.java"
+}

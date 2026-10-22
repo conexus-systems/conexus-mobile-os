@@ -1,0 +1,5 @@
+{
+  "brand": "google",
+  "status": "unverified",
+  "hal_source": "driver-core/vendors/src/main/java/com/conexus/driver/vendors/google/GoogleVendorHal.java"
+}

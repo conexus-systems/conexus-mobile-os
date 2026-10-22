@@ -1,0 +1,5 @@
+{
+  "brand": "samsung",
+  "status": "unverified",
+  "hal_source": "driver-core/vendors/src/main/java/com/conexus/driver/vendors/samsung/SamsungVendorHal.java"
+}
