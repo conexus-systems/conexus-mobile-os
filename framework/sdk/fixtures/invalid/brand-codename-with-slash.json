@@ -1,0 +1,9 @@
+{
+  "brand": "google",
+  "status": "unverified",
+  "devices": [
+    {
+      "codename": "a/b"
+    }
+  ]
+}
