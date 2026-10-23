@@ -1,0 +1,192 @@
+import { Button, Text, VerticalLayout, HorizontalLayout, GridLayout, GridLayoutItem } from "std-widgets.slint";
+
+// Design tokens as global properties
+export global ThemeProvider {
+    // Theme mode: "light" | "dark" | "hc"
+    property<string> theme-mode: "dark";
+    
+    // Colors (updated by theme-mode)
+    property<color> color-primary: #0066CC;
+    property<color> color-surface: #121212;
+    property<color> color-on-surface: #E6E1E5;
+    property<color> color-outline: #938F99;
+    property<color> color-error: #F2B8B5;
+    
+    // Spacing
+    property<int> spacing-base: 4;
+    property<int> spacing-sm: 8;
+    property<int> spacing-md: 16;
+    property<int> spacing-lg: 24;
+    property<int> spacing-xl: 32;
+    
+    // Typography
+    property<string> font-family: "Inter Variable, Roboto Flex, Noto Sans Variable, system-ui";
+    property<int> font-size-body: 16;
+    property<int> font-size-title: 22;
+    property<int> font-size-headline: 28;
+    
+    // Motion
+    property<int> motion-short: 100;
+    property<int> motion-medium: 200;
+    property<int> motion-long: 300;
+    property<string> easing-standard: "cubic-bezier(0.2, 0, 0, 1)";
+    
+    // Shapes
+    property<int> corner-none: 0;
+    property<int> corner-small: 4;
+    property<int> corner-medium: 8;
+    property<int> corner-large: 16;
+    
+    // Theme toggle callback
+    callback toggle_theme();
+}
+
+// Tile data model
+export struct TileData {
+    id: string,
+    size: string, // "small" | "medium" | "wide" | "large"
+    title: string,
+    front_type: string, // "icon" | "text" | "image"
+    front_value: string, // icon name, text, or image url
+    front_color: string,
+    back_type: string,
+    back_value: string,
+    back_color: string,
+    badge: int, // 0 = no badge
+    is_flipping: bool,
+    flip_progress: float, // 0.0 to 1.0
+}
+
+// Tile component
+export component Tile inherits Rectangle {
+    property<TileData> data;
+    property<ThemeProvider> theme;
+    property<int> grid-columns: 4; // responsive grid columns
+    
+    in property<bool> focused: false;
+    in property<bool> pressed: false;
+    
+    // Flip animation state
+    property<float> flip-progress: 0.0;
+    property<bool> is-flipping: false;
+    
+    // Computed size based on grid
+    property<int> tile-width: 0;
+    property<int> tile-height: 0;
+    
+    // Flip animation
+    animate flip-progress {
+        duration: 600ms;
+        easing: ease-in-out;
+    }
+    
+    width: self.tile-width;
+    height: self.tile-height;
+    background: self.theme.color-surface;
+    border-width: self.focused ? 2px : (self.pressed ? 1px : 0px);
+    border-color: self.focused ? self.theme.color-primary : transparent;
+    clip: true;
+    
+    // Shadow/elevation
+    drop-shadow: blur(8px) color(#00000040) offset(0, 2px);
+    
+    // Tile content - front face
+    VerticalLayout {
+        alignment: center;
+        spacing: 8px;
+        padding: 16px;
+        
+        // Badge
+        HorizontalLayout {
+            alignment: end;
+            HorizontalLayout {
+                visible: data.badge > 0;
+                background: self.theme.color-error;
+                border-radius: 12px;
+                padding: 2px 6px;
+                Text {
+                    text: data.badge > 99 ? "99+" : data.badge.to-string();
+                    color: white;
+                    font-size: 12px;
+                    font-weight: 600;
+                }
+            }
+        }
+        
+        // Front content (flips to back)
+        HorizontalLayout {
+            alignment: center;
+            VerticalLayout {
+                alignment: center;
+                spacing: 8px;
+                
+                // Front content
+                Text {
+                    visible: data.front_type == "text";
+                    text: data.front_value;
+                    color: self.theme.color-on-surface;
+                    font-size: 14px;
+                    horizontal-alignment: center;
+                    wrap: word-wrap;
+                }
+                
+                // Icon (placeholder - would use actual icon font)
+                Text {
+                    visible: data.front_type == "icon";
+                    text: "[" + data.front_value + "]"; // placeholder
+                    color: data.front_color;
+                    font-size: 32px;
+                }
+                
+                // Tile title
+                Text {
+                    text: data.title;
+                    color: self.theme.color-on-surface;
+                    font-size: 16px;
+                    font-weight: 600;
+                    horizontal-alignment: center;
+                }
+                
+                // Badge count
+                Text {
+                    visible: data.badge > 0;
+                    text: data.badge > 99 ? "99+" : data.badge.to-string();
+                    color: self.theme.color-error;
+                    font-size: 12px;
+                    font-weight: 600;
+                }
+            }
+        }
+    }
+    
+    // Flip animation on click/tap
+    callback clicked();
+    
+    // Touch/click handling
+    TouchArea {
+        clicked => {
+            root.clicked();
+            // Trigger flip animation
+            root.is-flipping = true;
+            root.flip-progress = 1.0;
+        }
+    }
+    
+    // Keyboard focus
+    FocusScope {
+        focus-policy: click;
+    }
+}
+
+// Tile grid item sizing
+export component TileGridItem inherits GridLayoutItem {
+    property<TileData> data;
+    property<int> grid-columns: 4;
+    
+    // Compute column/row span based on tile size
+    property<int> col-span: 1;
+    property<int> row-span: 1;
+    
+    // This would be computed in the model
+    // Small: 1x1, Medium: 2x2, Wide: 4x2, Large: 4x4
+}

@@ -1,0 +1,315 @@
+import { Tile, TileGridItem } from "Tile.slint";
+import { VerticalLayout, HorizontalLayout, Text, Rectangle, TouchArea, FocusScope, GridLayout, GridLayoutItem } from "std-widgets.slint";
+
+export global ThemeProvider {
+    property<string> theme-mode: "dark";
+    property<color> color-primary: #0066CC;
+    property<color> color-surface: #121212;
+    property<color> color-on-surface: #E6E1E5;
+    property<color> color-outline: #938F99;
+    property<color> color-error: #F2B8B5;
+    property<int> spacing-base: 4;
+    property<int> spacing-sm: 8;
+    property<int> spacing-md: 16;
+    property<int> spacing-lg: 24;
+    property<int> spacing-xl: 32;
+    property<string> font-family: "Inter Variable, Roboto Flex, Noto Sans Variable, system-ui";
+    property<int> font-size-body: 16;
+    property<int> font-size-title: 22;
+    property<int> font-size-headline: 28;
+    property<int> motion-short: 100;
+    property<int> motion-medium: 200;
+    property<int> motion-long: 300;
+    property<string> easing-standard: "cubic-bezier(0.2, 0, 0, 1)";
+    property<int> corner-none: 0;
+    property<int> corner-small: 4;
+    property<int> corner-medium: 8;
+    property<int> corner-large: 16;
+    callback toggle_theme();
+}
+
+// HomeScreen main component
+export component HomeScreen inherits Window {
+    // Theme
+    property<ThemeProvider> theme: ThemeProvider {};
+    
+    // Tiles model
+    property<[TileData]> tiles: [];
+    
+    // Pivot tabs
+    property<int> current-pivot: 1; // 0=Eventos, 1=Apps, 2=Configurações
+    property<[string]> pivot-titles: ["Eventos", "Apps", "Configurações"];
+    
+    // Grid responsive columns
+    property<int> grid-columns: 4;
+    
+    // Window size
+    width: 360px;
+    height: 640px;
+    title: "Conexus Harmattan - Slint PoC";
+    
+    // Background
+    background: self.theme.color-surface;
+    
+    // Responsive grid columns based on width
+    property<int> responsive-cols: 
+        width < 600 ? 4 : (width < 900 ? 5 : (width < 1200 ? 6 : 8));
+    
+    VerticalLayout {
+        alignment: start;
+        spacing: 0;
+        
+        // App Bar
+        Rectangle {
+            height: 56px;
+            background: self.theme.color-surface;
+            border-width: 1px;
+            border-color: self.theme.color-outline;
+            
+            HorizontalLayout {
+                alignment: center;
+                spacing: 16px;
+                padding: 0 16px;
+                
+                // Title
+                Text {
+                    text: "Conexus";
+                    color: self.theme.color-on-surface;
+                    font-size: 22px;
+                    font-weight: 600;
+                    font-family: self.theme.font-family;
+                }
+                
+                // Spacer
+                HorizontalLayout { }
+                
+                // Search button
+                TouchArea {
+                    width: 40px;
+                    height: 40px;
+                    Rectangle {
+                        background: transparent;
+                        border-radius: 20px;
+                        Text {
+                            text: "🔍";
+                            font-size: 20px;
+                            color: self.theme.color-on-surface;
+                        }
+                    }
+                }
+                
+                // Theme toggle
+                TouchArea {
+                    width: 40px;
+                    height: 40px;
+                    Rectangle {
+                        background: transparent;
+                        border-radius: 20px;
+                        Text {
+                            text: self.theme.theme-mode == "dark" ? "☀️" : (self.theme.theme-mode == "light" ? "🌙" : "⚡");
+                            font-size: 20px;
+                            color: self.theme.color-on-surface;
+                        }
+                    }
+                    clicked => {
+                        self.theme.toggle_theme();
+                    }
+                }
+            }
+        }
+        
+        // Pivot Tabs
+        Rectangle {
+            height: 48px;
+            background: self.theme.color-surface;
+            border-width: 1px;
+            border-color: self.theme.color-outline;
+            
+            HorizontalLayout {
+                alignment: center;
+                spacing: 0;
+                
+                for pivot-title[i] in pivot-titles : HorizontalLayout {
+                    width: 100%;
+                    height: 100%;
+                    alignment: center;
+                    TouchArea {
+                        Rectangle {
+                            background: transparent;
+                            border-width: 0 0 (current-pivot == i ? 3px : 0) 0;
+                            border-color: self.theme.color-primary;
+                            animate border-width { duration: 200ms; easing: ease-out; }
+                            
+                            HorizontalLayout {
+                                alignment: center;
+                                padding: 0 16px;
+                                Text {
+                                    text: pivot-title[i];
+                                    color: current-pivot == i ? self.theme.color-primary : self.theme.color-outline;
+                                    font-size: 14px;
+                                    font-weight: 500;
+                                    font-family: self.theme.font-family;
+                                    animate color { duration: 200ms; easing: ease-out; }
+                                }
+                            }
+                        }
+                    }
+                    clicked => {
+                        current-pivot = i;
+                    }
+                }
+            }
+        }
+        
+        // Content area based on pivot
+        VerticalLayout {
+            alignment: start;
+            spacing: 0;
+            
+            // Pivot 0: Eventos (placeholder)
+            Rectangle {
+                visible: current-pivot == 0;
+                background: self.theme.color-surface;
+                VerticalLayout {
+                    alignment: center;
+                    spacing: 16px;
+                    Text {
+                        text: "Eventos";
+                        color: self.theme.color-on-surface;
+                        font-size: 24px;
+                        font-weight: 500;
+                    }
+                    Text {
+                        text: "Próximos eventos aparecerão aqui";
+                        color: self.theme.color-outline;
+                        font-size: 16px;
+                    }
+                }
+            }
+            
+            // Pivot 1: Apps Grid (MAIN)
+            Rectangle {
+                visible: current-pivot == 1;
+                background: self.theme.color-surface;
+                
+                VerticalLayout {
+                    alignment: start;
+                    spacing: 16px;
+                    padding: 16px;
+                    
+                    // Grid header
+                    HorizontalLayout {
+                        alignment: space-between;
+                        Text {
+                            text: "Aplicativos";
+                            color: self.theme.color-on-surface;
+                            font-size: 18px;
+                            font-weight: 500;
+                        }
+                        Text {
+                            text: tiles.length.to-string() + " apps";
+                            color: self.theme.color-outline;
+                            font-size: 14px;
+                        }
+                    }
+                    
+                    // Apps Grid
+                    ScrollView {
+                        GridLayout {
+                            columns: responsive-cols;
+                            spacing: 16px;
+                            row-spacing: 16px;
+                            
+                            for tile in tiles : TileGridItem {
+                                data: tile;
+                                grid-columns: responsive-cols;
+                                col-span: tile.size == "small" ? 1 : (tile.size == "medium" ? 2 : (tile.size == "wide" ? 4 : 4));
+                                row-span: tile.size == "small" ? 1 : (tile.size == "medium" ? 2 : (tile.size == "wide" ? 2 : 4));
+                                
+                                Tile {
+                                    data: tile;
+                                    theme: theme;
+                                    grid-columns: responsive-cols;
+                                    
+                                    clicked => {
+                                        debug("Tile clicked: " + tile.id);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Pivot 2: Configurações (placeholder)
+            Rectangle {
+                visible: current-pivot == 2;
+                background: self.theme.color-surface;
+                VerticalLayout {
+                    alignment: center;
+                    spacing: 16px;
+                    Text {
+                        text: "Configurações";
+                        color: self.theme.color-on-surface;
+                        font-size: 24px;
+                        font-weight: 500;
+                    }
+                    Text {
+                        text: "Configurações do Conexus aparecerão aqui";
+                        color: self.theme.color-outline;
+                        font-size: 16px;
+                    }
+                    
+                    // Theme toggle button for testing
+                    TouchArea {
+                        Rectangle {
+                            background: self.theme.color-primary;
+                            border-radius: 8px;
+                            padding: 12px 24px;
+                            Text {
+                                text: "Alternar Tema (" + self.theme.theme-mode + ")";
+                                color: white;
+                                font-size: 16px;
+                                font-weight: 500;
+                            }
+                        }
+                        clicked => {
+                            self.theme.toggle_theme();
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Status Bar (bottom)
+        Rectangle {
+            height: 24px;
+            background: self.theme.color-surface;
+            border-width: 1px 0 0 0;
+            border-color: self.theme.color-outline;
+            
+            HorizontalLayout {
+                alignment: center;
+                spacing: 16px;
+                padding: 0 8px;
+                
+                Text {
+                    text: "🔋 85%";
+                    color: self.theme.color-on-surface;
+                    font-size: 12px;
+                }
+                Text {
+                    text: "14:30";
+                    color: self.theme.color-on-surface;
+                    font-size: 12px;
+                    font-weight: 500;
+                }
+                Text {
+                    text: "📶 📡";
+                    color: self.theme.color-on-surface;
+                    font-size: 12px;
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,56 @@
+{
+  "color": {
+    "primary": {
+      "light": "#0066CC",
+      "dark": "#A6C8FF",
+      "hc": "#003399"
+    },
+    "surface": {
+      "light": "#FFFFFF",
+      "dark": "#121212",
+      "hc": "#FFFFFF"
+    },
+    "onSurface": {
+      "light": "#1C1B1F",
+      "dark": "#E6E1E5",
+      "hc": "#000000"
+    },
+    "outline": {
+      "light": "#79747E",
+      "dark": "#938F99",
+      "hc": "#000000"
+    },
+    "error": {
+      "light": "#B3261E",
+      "dark": "#F2B8B5",
+      "hc": "#FF0000"
+    }
+  },
+  "typography": {
+    "fontFamily": "Inter Variable, Roboto Flex, Noto Sans Variable, system-ui, sans-serif",
+    "scale": {
+      "displayLarge": { "size": 57, "weight": 400, "lineHeight": 64 },
+      "headlineMedium": { "size": 28, "weight": 500, "lineHeight": 36 },
+      "titleLarge": { "size": 22, "weight": 500, "lineHeight": 28 },
+      "bodyLarge": { "size": 16, "weight": 400, "lineHeight": 24 },
+      "labelLarge": { "size": 14, "weight": 500, "lineHeight": 20 }
+    }
+  },
+  "spacing": {
+    "base": 4,
+    "scale": [0, 4, 8, 12, 16, 20, 24, 32, 40, 48, 64]
+  },
+  "shape": {
+    "cornerNone": 0,
+    "cornerSmall": 4,
+    "cornerMedium": 8,
+    "cornerLarge": 16,
+    "cornerFull": 9999
+  },
+  "motion": {
+    "durationShort": 100,
+    "durationMedium": 200,
+    "durationLong": 300,
+    "easingStandard": "cubic-bezier(0.2, 0, 0, 1)"
+  }
+}
