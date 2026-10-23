@@ -13,6 +13,8 @@ import (
 
 	"github.com/conexus-systems/conexus-mobile-os/tools/installer/apply"
 	"github.com/conexus-systems/conexus-mobile-os/tools/installer/device"
+	"github.com/conexus-systems/conexus-mobile-os/tools/installer/extract"
+	"github.com/conexus-systems/conexus-mobile-os/tools/installer/inventory"
 	"github.com/conexus-systems/conexus-mobile-os/tools/installer/plan"
 	"github.com/conexus-systems/conexus-mobile-os/tools/installer/release"
 )
@@ -25,6 +27,10 @@ func (l *list) Set(v string) error { *l = append(*l, v); return nil }
 const usage = `uso:
   conexus-installer install [opções]   detecta o aparelho, baixa o core, mostra o plano e instala
   conexus-installer plan    [opções]   mostra o plano sem tocar em aparelho (usa um core já extraído)
+  conexus-installer extract --out PASTA_NOVA   copia do SEU aparelho os arquivos de vendor (módulos, HALs, firmware)
+                                       para construir o módulo de drivers dele. Só lê. Não publique o resultado.
+  conexus-installer inventory [--out arquivo.json]   só lê o aparelho (adb ligado) e avalia os critérios C1–C5;
+                                       não grava nada e não coleta serial nem IMEI
 
 extras que você escolhe (nada disso vem por padrão):
   --gapps arquivo.zip        GApps fornecido por você (o Conexus não distribui)
@@ -56,6 +62,7 @@ func main() {
 	coreDir := fs.String("core-dir", "", "")
 	devName := fs.String("device", "", "")
 	serial := fs.String("serial", "", "")
+	out := fs.String("out", "", "")
 	fs.Usage = func() { fmt.Fprint(os.Stderr, usage) }
 	fs.Parse(args)
 
@@ -69,6 +76,56 @@ func main() {
 	opts := plan.Options{GApps: *gapps, APKs: apks, DriverBundles: drivers, ExperimentalDrivers: *experimental}
 
 	switch cmd {
+	case "extract":
+		if *out == "" {
+			fatal(fmt.Errorf("extract exige --out com uma pasta nova"))
+		}
+		runner := device.ExecRunner{}
+		dev, err := device.Detect(runner)
+		if err != nil {
+			fatal(err)
+		}
+		if dev.Mode != device.ModeADB {
+			fatal(fmt.Errorf("a extração precisa do aparelho ligado, com a depuração USB autorizada (modo adb)"))
+		}
+		m, err := extract.Run(runner, dev.Serial, *out)
+		if m != nil {
+			fmt.Printf("%d arquivos copiados para %s\n", len(m.Files), *out)
+			for _, s := range m.Skipped {
+				fmt.Println("  não lido (sem permissão ou inexistente):", s)
+			}
+		}
+		if err != nil {
+			fatal(err)
+		}
+		fmt.Println("ATENÇÃO: são arquivos do fabricante. Não os publique nem os envie ao repositório.")
+	case "inventory":
+		runner := device.ExecRunner{}
+		dev, err := device.Detect(runner)
+		if err != nil {
+			fatal(err)
+		}
+		if dev.Mode != device.ModeADB {
+			fatal(fmt.Errorf("o inventário precisa do aparelho ligado, com a depuração USB autorizada (modo adb)"))
+		}
+		rep, err := inventory.Collect(runner, dev.Serial)
+		if err != nil {
+			fatal(err)
+		}
+		fmt.Printf("%s %s — SoC %s — kernel %s\n", rep.Props["ro.product.manufacturer"], rep.Props["ro.product.model"], rep.Props["ro.board.platform"], rep.Kernel)
+		for _, f := range rep.Assess() {
+			fmt.Printf("  %-26s %-13s %s\n", f.Criterion, f.State, f.Reason)
+		}
+		if *out != "" {
+			b, err := rep.JSON()
+			if err != nil {
+				fatal(err)
+			}
+			if err := os.WriteFile(*out, b, 0o600); err != nil {
+				fatal(err)
+			}
+			fmt.Println("Relatório salvo em", *out)
+		}
 	case "plan":
 		if *coreDir == "" || *devName == "" || *serial == "" {
 			fatal(fmt.Errorf("plan exige --core-dir, --device e --serial"))
