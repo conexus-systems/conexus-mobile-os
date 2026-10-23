@@ -1,0 +1,9 @@
+[workspace]
+resolver = "2"
+members = ["framework/sdk/rust", "services/core"]
+
+[workspace.package]
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/conexus-systems/conexus-mobile-os"
+rust-version = "1.75"
