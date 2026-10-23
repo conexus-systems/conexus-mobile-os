@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/conexus-systems/conexus-mobile-os/tools/installer/apply"
 	"github.com/conexus-systems/conexus-mobile-os/tools/installer/device"
@@ -31,6 +32,8 @@ const usage = `uso:
                                        para construir o módulo de drivers dele. Só lê. Não publique o resultado.
   conexus-installer inventory [--out arquivo.json]   só lê o aparelho (adb ligado) e avalia os critérios C1–C5;
                                        não grava nada e não coleta serial nem IMEI
+  conexus-installer unlock-check                 verifica se o bootloader pode ser destravado (OEM unlock),
+                                       guia o processo e testa fastboot flashing unlock
 
 extras que você escolhe (nada disso vem por padrão):
   --gapps arquivo.zip        GApps fornecido por você (o Conexus não distribui)
@@ -178,6 +181,11 @@ func main() {
 			fatal(err)
 		}
 		fmt.Println("Concluído.")
+	case "unlock-check":
+		runner := device.ExecRunner{}
+		if err := runUnlockCheck(runner); err != nil {
+			fatal(err)
+		}
 	default:
 		fmt.Fprint(os.Stderr, usage)
 		os.Exit(2)
@@ -219,4 +227,186 @@ func printPlan(p *plan.Plan) {
 func fatal(err error) {
 	fmt.Fprintln(os.Stderr, "erro:", err)
 	os.Exit(1)
+}
+
+// runUnlockCheck verifica o status do OEM unlock e guia o processo de desbloqueio do bootloader
+func runUnlockCheck(r device.Runner) error {
+	fmt.Println("=== Verificação de Desbloqueio de Bootloader (C1 - ADR-010) ===")
+	fmt.Println()
+
+	// 1. Detectar aparelho em modo ADB
+	dev, err := device.Detect(r)
+	if err != nil {
+		return fmt.Errorf("detecção: %w", err)
+	}
+	if dev.Mode != device.ModeADB {
+		return fmt.Errorf("o aparelho precisa estar ligado, com depuração USB autorizada (modo ADB)")
+	}
+
+	fmt.Printf("Aparelho detectado: %s %s (%s)\n", dev.Codename, dev.Serial, dev.Mode)
+	fmt.Println()
+
+	// 2. Ler propriedades relevantes
+	props := map[string]string{}
+	propKeys := []string{
+		"ro.oem_unlock_supported",
+		"ro.boot.flash.locked",
+		"ro.boot.verifiedbootstate",
+		"ro.boot.vbmeta.device_state",
+		"ro.boot.loader_type",
+	}
+	for _, key := range propKeys {
+		out, err := r.Run("adb", "-s", dev.Serial, "shell", "getprop", key)
+		if err == nil {
+			props[key] = strings.TrimSpace(out)
+		}
+	}
+
+	fmt.Println("--- Status Atual ---")
+	fmt.Printf("  ro.oem_unlock_supported: %s\n", props["ro.oem_unlock_supported"])
+	fmt.Printf("  ro.boot.flash.locked:    %s (0=unlocked, 1=locked)\n", props["ro.boot.flash.locked"])
+	fmt.Printf("  ro.boot.verifiedbootstate: %s\n", props["ro.boot.verifiedbootstate"])
+	fmt.Printf("  ro.boot.vbmeta.device_state: %s\n", props["ro.boot.vmeta.device_state"])
+	if props["ro.boot.loader_type"] != "" {
+		fmt.Printf("  ro.boot.loader_type:     %s\n", props["ro.boot.loader_type"])
+	}
+	fmt.Println()
+
+	// 3. Avaliar estado
+	oemSupported := props["ro.oem_unlock_supported"] == "1"
+	bootloaderLocked := props["ro.boot.flash.locked"] == "1"
+
+	if !bootloaderLocked {
+		fmt.Println("✅ BOOTLOADER JÁ DESTRAVADO (ro.boot.flash.locked=0)")
+		fmt.Println("   C1: PASS — pode prosseguir para instalação/extração")
+		return nil
+	}
+
+	if !oemSupported {
+		fmt.Println("❌ OEM UNLOCK NÃO SUPORTADO PELO FABRICANTE (ro.oem_unlock_supported=0)")
+		fmt.Println("   C1: FAIL — Bootloader permanentemente travado")
+		fmt.Println()
+		fmt.Println("   Este aparelho NÃO PODE receber sistema customizado.")
+		fmt.Println("   Projeto para este dispositivo: ENCERRADO (NO-GO)")
+		return nil
+	}
+
+	// 4. OEM unlock suportado, mas bootloader travado
+	fmt.Println("⚠️  Bootloader travado, mas OEM unlock suportado pelo fabricante")
+	fmt.Println("   Próximo passo: ATIVAR 'Desbloqueio de OEM' nas Opções do Desenvolvedor")
+	fmt.Println()
+
+	// 5. Verificar se Opções do Desenvolvedor está ativa
+	devOptions, _ := r.Run("adb", "-s", dev.Serial, "shell", "settings", "get", "global", "development_settings_enabled")
+	devEnabled := strings.TrimSpace(devOptions) == "1"
+	if !devEnabled {
+		fmt.Println("⚠️  Opções do Desenvolvedor NÃO estão ativas")
+		fmt.Println("   Ative em: Configurações > Sobre o telefone > Número da versão (toque 7x)")
+		fmt.Println("   Depois: Configurações > Sistema > Opções do desenvolvedor > ON")
+		fmt.Println()
+	}
+
+	// 6. Guia passo a passo
+	fmt.Println("--- Passo a Passo para Desbloqueio ---")
+	fmt.Println()
+	fmt.Println("1. No telefone:")
+	fmt.Println("   Configurações > Sistema > Opções do desenvolvedor")
+	fmt.Println("   → Ative 'Depuração USB' (se não estiver)")
+	fmt.Println("   → Ative 'Desbloqueio de OEM' (pode pedir PIN/biometria)")
+	fmt.Println()
+	fmt.Println("2. Conecte via USB (cabo de DADOS, não só carregamento)")
+	fmt.Println("   Autorize a depuração USB no popup do telefone")
+	fmt.Println()
+	fmt.Println("3. Execute o comando de desbloqueio:")
+	fmt.Println("   adb reboot bootloader")
+	fmt.Println("   fastboot flashing unlock")
+	fmt.Println()
+	fmt.Println("4. No telefone (tela de bootloader):")
+	fmt.Println("   → Use VOLUME +/– para navegar")
+	fmt.Println("   → POWER para confirmar 'Unlock the bootloader'")
+	fmt.Println("   ⚠️  APAGA TODOS OS DADOS DO APARELHO")
+	fmt.Println()
+	fmt.Println("5. Após unlock, o telefone fará factory reset e reiniciará")
+	fmt.Println("   Configure novamente, reative Depuração USB + Desbloqueio de OEM")
+	fmt.Println()
+	fmt.Println("6. Verifique se destravou:")
+	fmt.Println("   fastboot getvar unlocked")
+	fmt.Println("   Deve retornar: 'unlocked: yes'")
+	fmt.Println()
+
+	// 7. Oferecer executar teste agora
+	fmt.Print("Deseja tentar o desbloqueio AGORA? (y/N): ")
+	var response string
+	fmt.Scanln(&response)
+	if strings.ToLower(strings.TrimSpace(response)) != "y" {
+		fmt.Println("Cancelado. Execute 'conexus-installer unlock-check' novamente quando pronto.")
+		return nil
+	}
+
+	// 8. Executar sequência de unlock
+	fmt.Println()
+	fmt.Println("=== Executando desbloqueio ===")
+	fmt.Println()
+
+	// Reboot to bootloader
+	fmt.Println("→ Reiniciando para bootloader...")
+	out, err := r.Run("adb", "-s", dev.Serial, "reboot", "bootloader")
+	if err != nil {
+		return fmt.Errorf("adb reboot bootloader: %w (%s)", err, out)
+	}
+	// Wait for fastboot
+	time.Sleep(3 * time.Second)
+
+	// Check fastboot device
+	fbOut, _ := r.Run("fastboot", "devices")
+	if !strings.Contains(fbOut, dev.Serial) {
+		fmt.Println("⚠️  Aparelho não apareceu em fastboot. Aguardando mais...")
+		time.Sleep(5 * time.Second)
+		fbOut, _ = r.Run("fastboot", "devices")
+	}
+	fmt.Printf("Fastboot devices: %s\n", strings.TrimSpace(fbOut))
+
+	// Try flashing unlock
+	fmt.Println("→ Enviando 'fastboot flashing unlock'...")
+	out, err = r.Run("fastboot", "-s", dev.Serial, "flashing", "unlock")
+	fmt.Printf("Saída: %s\n", out)
+	if err != nil {
+		fmt.Printf("Erro: %v\n", err)
+		// Try legacy command
+		fmt.Println("→ Tentando comando legado 'fastboot oem unlock'...")
+		out, err = r.Run("fastboot", "-s", dev.Serial, "oem", "unlock")
+		fmt.Printf("Saída: %s\n", out)
+		if err != nil {
+			fmt.Printf("Erro: %v\n", err)
+		}
+	}
+
+	// Check result
+	fmt.Println("→ Verificando status...")
+	out, _ = r.Run("fastboot", "-s", dev.Serial, "getvar", "unlocked")
+	fmt.Printf("fastboot getvar unlocked: %s\n", out)
+
+	if strings.Contains(strings.ToLower(out), "unlocked: yes") {
+		fmt.Println()
+		fmt.Println("✅ BOOTLOADER DESTRAVADO COM SUCESSO!")
+		fmt.Println("   C1: PASS")
+		fmt.Println()
+		fmt.Println("   Próximos passos:")
+		fmt.Println("   1. Telefone fará factory reset e reiniciará")
+		fmt.Println("   2. Configure novamente, reative Depuração USB + Desbloqueio de OEM")
+		fmt.Println("   3. Rode 'conexus-installer inventory --out tcl505.json' para confirmar")
+		fmt.Println("   4. Rode 'conexus-installer extract --out ../tcl505-vendor' para extrair blobs")
+		return nil
+	}
+
+	fmt.Println()
+	fmt.Println("❌ DESBLOQUEIO FALHOU ou não confirmado")
+	fmt.Println("   Verifique se:")
+	fmt.Println("   - 'Desbloqueio de OEM' estava ATIVADO nas Opções do Desenvolvedor")
+	fmt.Println("   - Você confirmou 'Unlock the bootloader' na tela do telefone (POWER)")
+	fmt.Println("   - Cabo USB é de dados (teste: 'adb devices' no modo normal)")
+	fmt.Println()
+	fmt.Println("   Se a opção 'Desbloqueio de OEM' não existe ou está cinza:")
+	fmt.Println("   → Bootloader permanentemente travado = C1 FAIL = NO-GO")
+	return nil
 }

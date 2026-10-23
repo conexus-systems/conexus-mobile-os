@@ -1,8 +1,21 @@
 # Conexus Mobile OS — Subagent Definitions
 
-**Versão:** v0.1  
-**Data:** 19 de outubro de 2026  
+**Versão:** v0.2  
+**Data:** 22 de outubro de 2026  
 **Orquestrador:** A0 (Tech Lead)
+
+---
+
+## Projetos Ativos
+
+| Projeto | SDD | Status | Agentes |
+|---------|-----|--------|---------|
+| **Conexus Mobile OS (Android/Linux)** | `SDD.md` | M0 — Device Selection | A0–A7 |
+| **Conexus Harmattan (Rust Multiplatform)** | `SDD-HARMATTAN.md` | Fase 0 — Auditoria | Orchestrator + 5 agentes |
+
+---
+
+## A0 — Tech Lead / Orquestrador
 
 ---
 
@@ -282,3 +295,208 @@ Para adicionar um agente:
 2. A0 cria ADR se houver impacto arquitetural
 3. Agente recebe: objective, allowed files, acceptance criteria, dependencies
 4. Primeira tarefa: plano curto + setup de ambiente + hello-world test
+
+---
+
+# Conexus Harmattan — Agentes Especializados (Novo Projeto)
+
+Estes agentes operam exclusivamente no projeto **Conexus Harmattan** (SDD-HARMATTAN.md), independente dos agentes A0–A7 do Conexus Mobile OS.
+
+## H0 — Orchestrator (Harmattan)
+
+**Papel:** Orquestrador do Conexus Harmattan — coordena fases, distribui tarefas entre agentes especializados, exige aprovação antes de avançar, mantém ADRs e documentação sincronizados.
+
+**Arquivo de definição:** `.opencode/agents/orchestrator.md`
+
+**Escopo de arquivos:**
+- `SDD-HARMATTAN.md`
+- `docs/audit.md`, `docs/architecture.md`, `docs/repository-matrix.md`
+- `docs/decisions/ADR-*.md`
+- `.opencode/agents/*.md`
+
+**Fases gerenciadas:** Fase 0–8 (conforme SDD-HARMATTAN.md)
+
+**Critérios de aceite:**
+- [ ] Fase 0 auditoria completa antes de qualquer código
+- [ ] Gates de aprovação humana em cada transição de fase
+- [ ] ADRs sincronizados com decisões reais
+- [ ] Rastreabilidade task → agent → deliverable → evidence
+
+**Dependências:** Todos os agentes Harmattan
+
+---
+
+## H1 — Architect Rust (Harmattan)
+
+**Papel:** Arquiteto Rust — define módulos, contratos, ADRs, crate graph, limites core/platform, interfaces estáveis. Não escreve código de aplicação.
+
+**Arquivo de definição:** `.opencode/agents/architect-rust.md`
+
+**Escopo de arquivos:**
+- `Cargo.toml` (workspace root)
+- `conexus-*/Cargo.toml` (crates)
+- `docs/architecture.md`
+- `docs/decisions/ADR-*.md`
+- `rust-toolchain.toml`, `clippy.toml`, `rustfmt.toml`
+
+**Entregáveis por fase:**
+- Fase 0: ADRs iniciais, architecture.md, repository-matrix.md
+- Fase 1: UI framework evaluation doc
+- Fase 2: Workspace Cargo configurado
+- Fase 3: Contratos (traits, types, error handling)
+- Fase 4+: UI contracts, service contracts
+
+**Critérios de aceite:**
+- [ ] Zero código de aplicação escrito
+- [ ] Todos contratos públicos têm docs
+- [ ] ADR para cada decisão não-trivial
+- [ ] Framework UI não fixado sem PoC (ADR-008)
+
+**Dependências:** H0, H3 (validator), H4 (platform-adapter), H5 (ux-ui-2026)
+
+---
+
+## H2 — Implementer Rust (Harmattan)
+
+**Papel:** Implementador Rust — desenvolve crates, features, testes em pequenas entregas atômicas, segue contratos do H1, mantém build limpo.
+
+**Arquivo de definição:** `.opencode/agents/implementer-rust.md`
+
+**Escopo de arquivos:**
+- `conexus-*/src/**/*.rs`
+- `conexus-*/tests/**/*.rs`
+- `conexus-*/examples/**/*.rs`
+- `.github/workflows/ci.yml`
+
+**Entregáveis por fase:**
+- Fase 2: Workspace + crates base + CI
+- Fase 3: Core crates (config, events, platform, diagnostics, error)
+- Fase 4: UI crate + launcher binary
+- Fase 5: Service crates (profiles, apps, permissions)
+- Fase 6: Migração components Harmattan
+
+**Critérios de aceite:**
+- [ ] `cargo check && cargo test && cargo clippy` passam
+- [ ] Testes unit + integration + contract para cada crate
+- [ ] Sem `unwrap()`/`expect()` em produção
+- [ ] PRs < 400 linhas, reversíveis
+
+**Dependências:** H0, H1 (contratos), H3 (validator), H4 (platform traits)
+
+---
+
+## H3 — Validator (Harmattan)
+
+**Papel:** Validador — code review, build verification, testes, segurança, regressões. Não modifica arquivos, apenas valida e aprova/rejeita.
+
+**Arquivo de definição:** `.opencode/agents/validator.md`
+
+**Escopo de arquivos:**
+- PRs de todos os agentes implementadores
+- CI logs, test reports, audit reports
+- `docs/security-audit.md`
+
+**Validações obrigatórias:**
+- Build: check, test, clippy, fmt, targets (Linux + Android)
+- Segurança: cargo audit, cargo deny, cargo geiger, secrets
+- Arquitetura: contratos, ADRs, semver, feature flags
+- Performance: binary size, compile time, benchmarks
+
+**Critérios de aceite:**
+- [ ] Checklist preenchido por PR
+- [ ] Relatório com evidências (logs, métricas)
+- [ ] Bloqueia se incerto ("não sei" = rejeita)
+- [ ] Gates de fase validados antes de aprovar transição
+
+**Dependências:** H0, H1, H2, H4
+
+---
+
+## H4 — Platform Adapter (Harmattan)
+
+**Papel:** Adaptador de Plataforma — implementa e valida traits de plataforma (Linux/Android), mapeia capacidades reais, isola código JNI/FFI/D-Bus.
+
+**Arquivo de definição:** `.opencode/agents/platform-adapter.md`
+
+**Escopo de arquivos:**
+- `conexus-platform-linux/src/**/*.rs`
+- `conexus-platform-android/src/**/*.rs` + `android/src/main/java/**/*.kt`
+- `docs/platform-support.md`
+
+**Traits a implementar:**
+- `AppDiscovery`, `NotificationBackend`, `PermissionManager`, `ConfigStore`, `PlatformDiagnostics`
+
+**Entregáveis por fase:**
+- Fase 3: Platform traits + Linux stub + Android stub
+- Fase 4: Linux impl (desktop files, DBus, notify-rust, sysinfo)
+- Fase 5: Android impl (JNI, PackageManager, NotificationManager, SharedPreferences)
+- Fase 6: Matrix de suporte documentada
+
+**Critérios de aceite:**
+- [ ] Traits compilam nos 2 targets (Linux + Android)
+- [ ] Capabilities matrix documentada
+- [ ] Fallback gracioso (`Unsupported` error)
+- [ ] JNI isolado em `platform/android/`
+
+**Dependências:** H0, H1 (traits), H2 (impl), H3 (validator)
+
+---
+
+## H5 — UX/UI 2026 (Harmattan)
+
+**Papel:** Avaliador UX/UI — valida experiência inspirada no MeeGo Harmattan atualizada para 2026, acessibilidade WCAG 2.2 AA, design system, heurísticas.
+
+**Arquivo de definição:** `.opencode/agents/ux-ui-2026.md`
+
+**Skill:** `conexus-ux-2026` (`.opencode/skills/conexus-ux-2026/SKILL.md`)
+
+**Escopo de arquivos:**
+- `conexus-ui/src/tokens/`, `conexus-ui/src/components/`
+- `design-tokens.json`
+- Storybook / protótipos
+- Relatórios de auditoria UX
+
+**Entregáveis por fase:**
+- Fase 1: Protótipo home + navegação, tokens, framework decidido
+- Fase 2: Design tokens no repo, component library Storybook
+- Fase 3: UI contract specs (traits)
+- Fase 4: Build funcional + usability test + a11y audit
+- Fase 5+: Settings, profiles, notifications UX validated
+
+**Critérios de aceite:**
+- [ ] WCAG 2.2 AA baseline (0 violações axe-core)
+- [ ] Tokens aplicados (sem hardcoded values)
+- [ ] Component library usada (não reimplementado)
+- [ ] Cross-platform parity documentada
+- [ ] Relatório por PR com checklist preenchido
+
+**Dependências:** H0, H1 (UI contracts), H2 (impl), H3 (validator), H4 (capabilities)
+
+---
+
+## Skill: conexus-ux-2026
+
+**Arquivo:** `.opencode/skills/conexus-ux-2026/SKILL.md`
+
+Contém:
+- Heurísticas expandidas (Nielsen + Mobile 2026 + Launcher)
+- Paletas Dynamic Color + Static Fallback + High Contrast
+- Font pairs 2026 (Variable fonts first)
+- Charts guidelines, GSAP presets
+- Metodologia de auditoria passo a passo
+- Checklists de validação por PR
+- Referências rápidas (WCAG, Material 3, Fluent 2, Android 14, iOS 17)
+
+**Uso:** Carregar via `skill conexus-ux-2026` antes de validações formais.
+
+---
+
+## Regras de Colaboração Harmattan (Adicionais)
+
+1. **Fase 0 obrigatória** — Nenhum código antes de auditoria completa + aprovação H0
+2. **ADR-driven** — Decisão arquitetural = ADR antes de implementação
+3. **Skill UX obrigatória** — Carregar `conexus-ux-2026` antes de validar UI
+4. **Validator gate** — H3 aprova antes de merge em qualquer fase
+5. **Platform reality** — H4 testa em device/emulador antes de prometer capability
+5. **Humano no loop** — Gates de fase exigem aprovação explícita
+6. **Rastreabilidade** — Task ID propagado: orchestrator → agent → PR → validator → evidence

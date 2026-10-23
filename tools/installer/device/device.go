@@ -62,7 +62,7 @@ type Device struct {
 }
 
 var serialRe = regexp.MustCompile(`^[A-Za-z0-9._:-]{1,64}$`)
-var codenameRe = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{0,63}$`)
+var codenameRe = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$`)
 
 // ErrNoDevice e ErrMultipleDevices evitam gravar no aparelho errado.
 var (
