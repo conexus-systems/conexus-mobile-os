@@ -1,0 +1,12 @@
+{
+  "id": "n1",
+  "channel": "Mail Box",
+  "title": "Olá",
+  "actions": [
+    {
+      "type": "deepLink",
+      "label": "Abrir",
+      "deepLink": "conexus://mail/inbox"
+    }
+  ]
+}

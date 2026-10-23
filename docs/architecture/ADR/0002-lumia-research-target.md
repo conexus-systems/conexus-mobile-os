@@ -26,7 +26,10 @@ No entanto:
 
 ## Decisão
 
-**Manter Lumia 950/950 XL como alvo de pesquisa (laboratório), NÃO como produto.**
+**Manter Lumia 950/950 XL e Lumia 730/735 como alvos de pesquisa (laboratório), NÃO como produto.**
+
+- **Lumia 950 / 950 XL (RM-1104 / RM-1105 / RM-1116):** alvo de pesquisa de boot e drivers. Há UEFI comunitário (Lumia950XLPkg).
+- **Lumia 730 / 735 (RM-914 / RM-915):** alvo de pesquisa documental. Conforme `docs/lumia-730/TECHNICAL_ASSESSMENT.md`, não há bootloader desbloqueável nem port UEFI, então o Conexus Mobile OS não roda nele. A pesquisa cobre o que é possível (ex.: restauração e uso do sistema original, comparação de hardware) e registra por que a imagem não é viável.
 
 - Objetivo: Entender boot ARM64, drivers, limitações de hardware, validar conceitos de baixo nível
 - Escopo: UEFI boot → Linux kernel → Conexus Shell (se viável)

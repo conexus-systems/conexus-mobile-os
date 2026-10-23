@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conexus-mobile-os.github.io/schemas/tile-manifest.schema.json",
+  "title": "Conexus Tile Manifest",
+  "type": "object",
+  "required": [
+    "tileId",
+    "size",
+    "content"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "tileId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$"
+    },
+    "size": {
+      "type": "string",
+      "enum": [
+        "S",
+        "M",
+        "W",
+        "L"
+      ]
+    },
+    "content": {
+      "type": "object",
+      "required": [
+        "template"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "template": {
+          "type": "string",
+          "enum": [
+            "icon",
+            "text",
+            "image",
+            "media",
+            "flip"
+          ]
+        },
+        "data": {
+          "type": "object"
+        }
+      }
+    },
+    "activation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "deepLink": {
+          "type": "string",
+          "pattern": "^conexus://"
+        }
+      }
+    },
+    "update": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "push",
+            "periodic",
+            "manual"
+          ]
+        },
+        "periodMinutes": {
+          "type": "integer",
+          "minimum": 15
+        }
+      },
+      "required": [
+        "mode"
+      ],
+      "if": {
+        "properties": {
+          "mode": {
+            "const": "periodic"
+          }
+        },
+        "required": [
+          "mode"
+        ]
+      },
+      "then": {
+        "required": [
+          "periodMinutes"
+        ]
+      }
+    },
+    "badges": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 3
+      }
+    }
+  }
+}

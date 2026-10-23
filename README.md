@@ -143,8 +143,10 @@ O **Conexus Mobile OS** nasce da ideia de preservar o que tornava o Windows 10 M
 **Critérios atendidos pelo Pixel 8a:** ✅ Bootloader unlock oficial ✅ Kernel source mainline 6.1 ✅ Recovery oficial LineageOS ✅ A/B + Dynamic partitions ✅ Community forte (LineageOS upstream) ✅ Device tree/vendor mantidos ✅ Hardware 2024
 
 ### Lumia (Pesquisa — Não-Produto)
-- **Modelo:** Lumia 950 XL (RM-1116) — preferencial por tela maior
-- **Referências:** [LumiaWOA](https://github.com/WOA-Project/LumiaWOA), [Lumia950XLPkg](https://github.com/WOA-Project/Lumia950XLPkg)
+- **Modelos de pesquisa:**
+  - **Lumia 950 / 950 XL** (RM-1104 / RM-1105 / RM-1116) — preferencial 950 XL por tela maior; boot e drivers
+  - **Lumia 730 / 735** (RM-914 / RM-915) — pesquisa documental; sem bootloader desbloqueável nem UEFI, não roda o Conexus Mobile OS ([assessment](docs/lumia-730/TECHNICAL_ASSESSMENT.md))
+- **Referências (950):** [LumiaWOA](https://github.com/WOA-Project/LumiaWOA), [Lumia950XLPkg](https://github.com/WOA-Project/Lumia950XLPkg)
 - **Expectativa:** Boot Linux ARM64, drivers parciais, **sem telefonia/emergência confiável**
 - **Status:** Trilha paralela M5 — Go/No-go após M4 Alpha
 
