@@ -1,6 +1,6 @@
 # ADR-011: Famílias de marca como matriz, não um APK por marca — **PROPOSTO**
 
-**Status:** Proposto (não aprovado; não altera o primário M0)
+**Status:** Proposto, parcialmente substituído pelo ADR-014 (APK por marca como contêiner, carregado por serviço de sistema). A matriz por marca e modelo continua valendo.
 **Data:** 2026-10-21
 **Decisores:** Tech Lead (A0), Security (A5), Platform (A2)
 **Assinatura:** pendente

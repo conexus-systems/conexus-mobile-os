@@ -83,6 +83,40 @@ pub enum DriverError {
     Unsigned(String),
     BadSignature(String),
     AlreadyInstalled(String),
+    /// Nenhuma variante do bundle serve para este aparelho e este kernel.
+    NoMatchingVariant { device: String, kernel_release: String },
+    /// Mais de uma variante serve; o bundle é ambíguo e é recusado.
+    AmbiguousVariant { device: String, kernel_release: String },
+    /// O KMI do módulo não é o do kernel instalado.
+    KmiMismatch { expected: String, found: String },
+}
+
+/// Identificação do aparelho onde o bundle será instalado.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DeviceInfo {
+    /// Codinome do device, ex.: `akita`.
+    pub device: String,
+    /// `uname -r` do kernel em execução.
+    pub kernel_release: String,
+    /// KMI do kernel em execução, ex.: `android14-6.1`.
+    pub kmi: String,
+}
+
+/// Uma variante do bundle: pacote compilado para um device e um kernel exatos.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DriverVariant {
+    pub device: String,
+    pub kernel_release: String,
+    pub package: DriverPackage,
+}
+
+/// Contêiner entregue num APK (ADR-014): reúne as variantes de uma marca.
+/// O APK só transporta o bundle; quem verifica e carrega é o driver manager,
+/// serviço de sistema. O APK em si não recebe privilégio de kernel.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DriverBundle {
+    pub brand: String,
+    pub variants: Vec<DriverVariant>,
 }
 
 impl From<ValidationError> for DriverError {
@@ -121,6 +155,14 @@ impl<V: SignatureVerifier> DriverManager<V> {
         device: &str,
         kernel_release: &str,
     ) -> Result<(), DriverError> {
+        self.check_install(package, device, kernel_release)?;
+        let manifest = &package.manifest;
+        self.installed.insert(manifest.name.clone(), manifest.clone());
+        Ok(())
+    }
+
+    /// Faz todas as checagens de `install_with` sem alterar o estado.
+    fn check_install(&self, package: &DriverPackage, device: &str, kernel_release: &str) -> Result<(), DriverError> {
         let manifest = &package.manifest;
         let signature = package
             .signature
@@ -134,7 +176,48 @@ impl<V: SignatureVerifier> DriverManager<V> {
         if self.installed.contains_key(&manifest.name) {
             return Err(DriverError::AlreadyInstalled(manifest.name.clone()));
         }
-        self.installed.insert(manifest.name.clone(), manifest.clone());
+        Ok(())
+    }
+
+    /// Instala **todas** as variantes do bundle que correspondem ao aparelho e ao kernel
+    /// (um driver por componente, ADR-009), de forma atômica: se qualquer uma falhar nas
+    /// checagens, nenhuma é instalada. Duas variantes com o mesmo nome tornam o bundle ambíguo.
+    pub fn install_bundle(&mut self, bundle: &DriverBundle, device: &DeviceInfo) -> Result<(), DriverError> {
+        let selected: Vec<&DriverVariant> = bundle
+            .variants
+            .iter()
+            .filter(|v| v.device == device.device && v.kernel_release == device.kernel_release)
+            .collect();
+        if selected.is_empty() {
+            return Err(DriverError::NoMatchingVariant {
+                device: device.device.clone(),
+                kernel_release: device.kernel_release.clone(),
+            });
+        }
+        for (i, v) in selected.iter().enumerate() {
+            if selected[..i].iter().any(|o| o.package.manifest.name == v.package.manifest.name) {
+                return Err(DriverError::AmbiguousVariant {
+                    device: device.device.clone(),
+                    kernel_release: device.kernel_release.clone(),
+                });
+            }
+        }
+        for v in &selected {
+            let m = &v.package.manifest;
+            if m.kind == DriverKind::KernelModule {
+                match m.kmi.as_deref() {
+                    Some(kmi) if kmi != device.kmi => {
+                        return Err(DriverError::KmiMismatch { expected: device.kmi.clone(), found: kmi.to_string() })
+                    }
+                    Some(_) => {}
+                    None => return Err(DriverError::Invalid(ValidationError { field: "kmi", reason: "módulo de kernel precisa declarar o KMI".into() })),
+                }
+            }
+            self.check_install(&v.package, &v.device, &v.kernel_release)?;
+        }
+        for v in selected {
+            self.installed.insert(v.package.manifest.name.clone(), v.package.manifest.clone());
+        }
         Ok(())
     }
 

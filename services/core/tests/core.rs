@@ -1,6 +1,7 @@
 use conexus_core::apps::{AppError, AppManager, LifecycleState};
 use conexus_core::drivers::{
-    signing_message, DriverError, DriverKind, DriverManager, DriverManifest, DriverPackage, SignatureVerifier,
+    signing_message, DeviceInfo, DriverBundle, DriverError, DriverKind, DriverManager, DriverManifest, DriverPackage,
+    DriverVariant, SignatureVerifier,
 };
 use conexus_core::notifications::{NotificationBroker, NotificationError, MAX_ACTIVE};
 use conexus_core::tiles::{TileEngine, TileError};
@@ -256,6 +257,157 @@ fn modulo_de_kernel_com_kmi_e_assinatura_instala() {
     mgr.install(driver("pixel-8a-touch", DriverKind::KernelModule, Some("android14-6.1"), Some(b"ok")))
         .unwrap();
     assert_eq!(mgr.get("pixel-8a-touch").unwrap().kmi.as_deref(), Some("android14-6.1"));
+}
+
+// ---- bundles (APK de uma marca, ADR-014) ----
+
+fn variant(device: &str, kernel: &str, kmi: &str, name: &str, sig: Option<&[u8]>) -> DriverVariant {
+    DriverVariant {
+        device: device.into(),
+        kernel_release: kernel.into(),
+        package: driver(name, DriverKind::KernelModule, Some(kmi), sig),
+    }
+}
+
+fn akita() -> DeviceInfo {
+    DeviceInfo { device: "akita".into(), kernel_release: "6.1.99-android14".into(), kmi: "android14-6.1".into() }
+}
+
+#[test]
+fn bundle_instala_so_a_variante_do_aparelho() {
+    let bundle = DriverBundle {
+        brand: "google".into(),
+        variants: vec![
+            variant("akita", "6.1.99-android14", "android14-6.1", "akita-touch", Some(b"ok")),
+            variant("other", "5.15.0", "android13-5.15", "other-touch", Some(b"ok")),
+        ],
+    };
+    let mut mgr = DriverManager::new(AcceptOk);
+    mgr.install_bundle(&bundle, &akita()).unwrap();
+    assert!(mgr.get("akita-touch").is_some());
+    assert!(mgr.get("other-touch").is_none());
+}
+
+#[test]
+fn bundle_sem_variante_para_o_aparelho_e_recusado() {
+    let bundle = DriverBundle {
+        brand: "google".into(),
+        variants: vec![variant("other", "5.15.0", "android13-5.15", "other-touch", Some(b"ok"))],
+    };
+    let mut mgr = DriverManager::new(AcceptOk);
+    assert!(matches!(
+        mgr.install_bundle(&bundle, &akita()),
+        Err(DriverError::NoMatchingVariant { .. })
+    ));
+}
+
+#[test]
+fn bundle_com_kernel_diferente_nao_serve() {
+    let bundle = DriverBundle {
+        brand: "google".into(),
+        variants: vec![variant("akita", "6.1.50-android14", "android14-6.1", "akita-touch", Some(b"ok"))],
+    };
+    let mut mgr = DriverManager::new(AcceptOk);
+    assert!(matches!(
+        mgr.install_bundle(&bundle, &akita()),
+        Err(DriverError::NoMatchingVariant { .. })
+    ));
+}
+
+#[test]
+fn bundle_instala_todos_os_componentes_do_aparelho() {
+    let bundle = DriverBundle {
+        brand: "google".into(),
+        variants: vec![
+            variant("akita", "6.1.99-android14", "android14-6.1", "akita-touch", Some(b"ok")),
+            variant("akita", "6.1.99-android14", "android14-6.1", "akita-camera", Some(b"ok")),
+            variant("other", "5.15.0", "android13-5.15", "other-touch", Some(b"ok")),
+        ],
+    };
+    let mut mgr = DriverManager::new(AcceptOk);
+    mgr.install_bundle(&bundle, &akita()).unwrap();
+    assert!(mgr.get("akita-touch").is_some() && mgr.get("akita-camera").is_some());
+    assert!(mgr.get("other-touch").is_none());
+}
+
+#[test]
+fn bundle_com_dois_pacotes_de_mesmo_nome_e_ambiguo() {
+    let bundle = DriverBundle {
+        brand: "google".into(),
+        variants: vec![
+            variant("akita", "6.1.99-android14", "android14-6.1", "akita-touch", Some(b"ok")),
+            variant("akita", "6.1.99-android14", "android14-6.1", "akita-touch", Some(b"ok")),
+        ],
+    };
+    let mut mgr = DriverManager::new(AcceptOk);
+    assert!(matches!(
+        mgr.install_bundle(&bundle, &akita()),
+        Err(DriverError::AmbiguousVariant { .. })
+    ));
+    assert_eq!(mgr.list().count(), 0);
+}
+
+#[test]
+fn bundle_e_atomico_se_um_componente_falha() {
+    let bundle = DriverBundle {
+        brand: "google".into(),
+        variants: vec![
+            variant("akita", "6.1.99-android14", "android14-6.1", "akita-touch", Some(b"ok")),
+            variant("akita", "6.1.99-android14", "android14-6.1", "akita-camera", None),
+        ],
+    };
+    let mut mgr = DriverManager::new(AcceptOk);
+    assert_eq!(mgr.install_bundle(&bundle, &akita()), Err(DriverError::Unsigned("akita-camera".into())));
+    assert_eq!(mgr.list().count(), 0, "nada instalado quando um componente falha");
+}
+
+#[test]
+fn rotulo_de_variante_trocado_invalida_a_assinatura() {
+    // Assinado para o device `akita`; o atacante re-rotula a variante para `other`.
+    let signed_for_akita = variant("akita", "6.1.99-android14", "android14-6.1", "akita-touch", Some(b"sig"));
+    let message = signing_message(
+        &signed_for_akita.package.manifest, "akita", "6.1.99-android14", &signed_for_akita.package.payload,
+    );
+    let mut relabeled = signed_for_akita.clone();
+    relabeled.device = "other".into();
+    let bundle = DriverBundle { brand: "google".into(), variants: vec![relabeled] };
+    let mut mgr = DriverManager::new(ExactMessage(message));
+    let other = DeviceInfo { device: "other".into(), kernel_release: "6.1.99-android14".into(), kmi: "android14-6.1".into() };
+    assert!(matches!(mgr.install_bundle(&bundle, &other), Err(DriverError::BadSignature(_))));
+}
+
+#[test]
+fn bundle_com_kmi_diferente_do_kernel_e_recusado() {
+    let bundle = DriverBundle {
+        brand: "google".into(),
+        variants: vec![variant("akita", "6.1.99-android14", "android13-5.15", "akita-touch", Some(b"ok"))],
+    };
+    let mut mgr = DriverManager::new(AcceptOk);
+    assert!(matches!(
+        mgr.install_bundle(&bundle, &akita()),
+        Err(DriverError::KmiMismatch { .. })
+    ));
+}
+
+#[test]
+fn bundle_sem_assinatura_e_recusado_mesmo_com_variante_certa() {
+    let bundle = DriverBundle {
+        brand: "google".into(),
+        variants: vec![variant("akita", "6.1.99-android14", "android14-6.1", "akita-touch", None)],
+    };
+    let mut mgr = DriverManager::new(AcceptOk);
+    assert_eq!(mgr.install_bundle(&bundle, &akita()), Err(DriverError::Unsigned("akita-touch".into())));
+    assert_eq!(mgr.list().count(), 0);
+}
+
+#[test]
+fn bundle_sem_verificador_configurado_nao_instala() {
+    let bundle = DriverBundle {
+        brand: "google".into(),
+        variants: vec![variant("akita", "6.1.99-android14", "android14-6.1", "akita-touch", Some(b"ok"))],
+    };
+    let mut mgr = DriverManager::default();
+    assert!(matches!(mgr.install_bundle(&bundle, &akita()), Err(DriverError::BadSignature(_))));
 }
 
 // ---- assinatura cobre manifest e variante ----
