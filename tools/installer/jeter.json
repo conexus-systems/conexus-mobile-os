@@ -1,0 +1,49 @@
+{
+  "props": {
+    "ro.board.platform": "msm8937",
+    "ro.boot.verifiedbootstate": "green",
+    "ro.build.fingerprint": "asus/WW_I01WD/ASUS_I01WD:9/PPR2.181005.003/16.1220.1909.193-0:user/release-keys",
+    "ro.build.version.release": "11",
+    "ro.build.version.sdk": "30",
+    "ro.build.version.security_patch": "2019-09-01",
+    "ro.hardware": "qcom",
+    "ro.product.brand": "motorola",
+    "ro.product.cpu.abi": "arm64-v8a",
+    "ro.product.cpu.abilist": "arm64-v8a,armeabi-v7a,armeabi",
+    "ro.product.device": "jeter",
+    "ro.product.first_api_level": "26",
+    "ro.product.manufacturer": "motorola",
+    "ro.product.model": "moto g(6) play",
+    "ro.product.name": "jeter",
+    "ro.treble.enabled": "true",
+    "ro.vndk.version": "30"
+  },
+  "kernel_release": "3.18.140-ᛗᛁᛗᛁᚱ/c69494bf",
+  "assessment": [
+    {
+      "criterion": "C1 bootloader",
+      "state": "desconhecido",
+      "reason": "o aparelho não informou o estado do bootloader"
+    },
+    {
+      "criterion": "C2 fonte GPL do kernel",
+      "state": "desconhecido",
+      "reason": "precisa de fonte pública verificada para este modelo"
+    },
+    {
+      "criterion": "C3 device tree",
+      "state": "desconhecido",
+      "reason": "precisa de repositório público verificado para este modelo"
+    },
+    {
+      "criterion": "C4 kernel",
+      "state": "não",
+      "reason": "kernel 3.18 é anterior a 5.10 (legado sem GKI): só pacote de driver em userspace"
+    },
+    {
+      "criterion": "C5 recovery",
+      "state": "desconhecido",
+      "reason": "sem A/B: um flash ruim pode deixar o aparelho sem boot; o recovery precisa ser testado antes"
+    }
+  ]
+}

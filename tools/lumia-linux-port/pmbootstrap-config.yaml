@@ -1,0 +1,161 @@
+# pmbootstrap config for Nokia Lumia 730/735 (nokia-superman)
+# Gerado automaticamente por ./lumia-port.sh init
+# Não edite manualmente — rode ./lumia-port.sh init novamente se precisar mudar
+
+# Device
+DEVICE_VENDOR="nokia"
+DEVICE_CODENAME="superman"
+DEVICE_ARCH="armhf"
+DEVICE_NAME="Nokia Lumia 730/735"
+
+# Kernel
+KERNEL_FLAVOR="downstream"
+KERNEL_PKG="linux-nokia-superman"
+KERNEL_VERSION="4.19"  # Downstream kernel version
+KERNEL_CMDLINE="console=ttyMSM0,115200n8 earlycon=msm_serial_dm,0x78B0000 androidboot.hardware=eagle androidboot.bootdevice=7824900.sdhci lpm_levels.sleep_disabled=1 msm_rtb.filter=0x237 service_locator.enable=1 swiotlb=2048 firmware_class.path=/vendor/firmware_mnt/image loop.max_part=7"
+
+# UI
+UI="none"
+# Alternativas para testar (não funcionam sem display driver):
+# UI="weston"      # Wayland compositor (precisa DRM/KMS)
+# UI="phosh"       # Phone shell (precisa display)
+# UI="plasma-mobile"  # KDE Plasma Mobile (precisa display + GPU)
+# UI="sxmo"        # Simple X Mobile (precisa X11 + display)
+
+# Rootfs
+USERNAME="user"
+PASSWORD_HASH="$6$rounds=656000$lumia123$..."  # Senha: lumia123 (mude após primeiro boot)
+FULL_DISK_ENCRYPTION="no"
+
+# Mirrors
+MIRROR="https://mirror.postmarketos.org"
+ALLOW_UNTRUSTED="yes"
+
+# Build options
+PARALLEL_JOBS="$(nproc)"
+CCACHE="yes"
+APORTS_DIR="${WORK_DIR}/aports"
+CACHE_DIR="${WORK_DIR}/cache"
+TEMP_DIR="${WORK_DIR}/tmp"
+
+# Device-specific packages (aports)
+DEVICE_PACKAGES="
+    device-nokia-superman
+    linux-nokia-superman
+    firmware-nokia-superman
+"
+
+# Extra packages for development
+EXTRA_PACKAGES="
+    vim
+    htop
+    lsof
+    strace
+    perf
+    gdb
+    python3
+    py3-pip
+    git
+    openssh
+    sudo
+    util-linux
+    e2fsprogs
+    dosfstools
+    parted
+    fdisk
+    lsblk
+    dmidecode
+    lshw
+    pciutils
+    usbutils
+    i2c-tools
+    gpiod
+    libgpiod
+    spidev
+    can-utils
+    ethtool
+    iw
+    wireless-tools
+    wpa_supplicant
+    bluez
+    bluez-deprecated
+    modemmanager
+    networkmanager
+    chrony
+    tzdata
+    ca-certificates
+    openssl
+    curl
+    wget
+    rsync
+    tar
+    gzip
+    bzip2
+    xz
+    zstd
+    unzip
+    p7zip
+    bash
+    zsh
+    fish
+    tmux
+    screen
+    less
+    more
+    nano
+    mc
+    tree
+    jq
+    yq
+    bat
+    fd
+    ripgrep
+    fzf
+    htop
+    btop
+    glances
+    sysstat
+    iotop
+    iftop
+    nethogs
+    socat
+    netcat-openbsd
+    telnet
+    whois
+    dnsutils
+    bind-tools
+    iproute2
+    iputils
+    traceroute
+    mtr
+    nmap
+    masscan
+    tcpdump
+    wireshark-cli
+    ngrep
+    dsniff
+    ettercap
+    bettercap
+    aircrack-ng
+    kismet
+    reaver
+    bully
+    pixiewps
+    hashcat
+    john
+    hydra
+    medusa
+    ncrack
+    sqlmap
+    metasploit
+    # ... adicione o que precisar para desenvolvimento
+"
+
+# Flash method
+FLASH_METHOD="fastboot"
+FLASH_BOOT_PARTITION="boot"
+FLASH_ROOTFS_PARTITION="userdata"  # Lumia usa userdata para rootfs
+
+# Post-flash
+POST_FLASH_REBOOT="yes"
+POST_FLASH_WAIT_SECONDS=30
