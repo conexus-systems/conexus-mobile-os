@@ -21,7 +21,7 @@ O **Conexus Mobile OS** nasce da ideia de preservar o que tornava o Windows 10 M
 ### O que É
 - ✅ Um **sistema operacional completo** (kernel, drivers, services, shell, apps)
 - ✅ **Engenharia reversa lícita** — observamos comportamento, reimplementamos do zero
-- ✅ **Base: LineageOS 23.2 (Android 15 QPR)** — upstream público, builds reproduzíveis
+- ✅ **Base: LineageOS 23.2 (Android 16)** — upstream público, builds reproduzíveis
 - ✅ **Launcher padrão: Conexus Launcher** — Live Tiles, pivôs, CommandBar, Metro UI
 - ✅ **Open Source (Apache-2.0)** — releases públicos, OTA próprio, site público
 - ✅ **Dois targets, um ecossistema:**

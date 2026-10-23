@@ -47,7 +47,7 @@ description: "Baixe o Conexus Mobile OS para seu dispositivo. Releases oficiais,
         <div id="changelog-content">
           <ul>
             <li><strong>Conexus Launcher v1.0:</strong> Live Tiles flip 3D, pivôs, CommandBar, Metro UI</li>
-            <li><strong>LineageOS 23.2 base:</strong> Android 15 QPR, security patches October 2026</li>
+            <li><strong>LineageOS 23.2 base:</strong> Android 16, security patches October 2026</li>
             <li><strong>OTA A/B:</strong> Updates automáticos, rollback, staged rollout</li>
             <li><strong>Metro UI:</strong> Selawik font, accent configurável, reduced motion</li>
             <li><strong>SDK:</strong> Kotlin + TS/RN com TileProvider, NavController, NotificationBroker</li>
@@ -178,7 +178,7 @@ fastboot reboot</code></pre>
         <a href="https://github.com/NothingOSS" target="_blank" rel="noopener" class="btn btn-outline">Nothing Firmware</a>
       </div>
       <details>
-        <summary>Hashes SHA-256 (Pixel 8a - android-15.0.0_r1)</summary>
+        <summary>Hashes SHA-256 (Pixel 8a - android-16.0.0_r4)</summary>
         <pre><code># Exemplo - substituir pelo build atual
 boot.img:          a1b2c3d4e5f6...
 dtbo.img:          f6e5d4c3b2a1...

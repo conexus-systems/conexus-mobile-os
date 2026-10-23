@@ -1,6 +1,6 @@
 # ADR-015: `driver-core` como base dos módulos por marca — **PROPOSTO**
 
-**Status:** Proposto (decisão do Tiago em 2026-10-22: manter o `driver-core` e usá-lo para criar os módulos das marcas). Resolve o ponto aberto do ADR-009 sobre o destino do `driver-core/`.
+**Status:** Proposto (decisão do Tiago em 2026-10-22: manter o `driver-core` e usá-lo para criar os módulos das marcas). Resolve o ponto aberto do ADR-009 sobre o destino do `driver-core/`. **Ajustado pelo ADR-016:** com Rust e Go como linguagens padrão, o `driver-core` em Java fica congelado (sem código novo) e serve de referência para reescrever cada HAL em Rust, marca a marca; os descritores `brands/` e a política de privilégio continuam valendo.
 **Data:** 2026-10-22
 **Decisores:** Tiago (decisão de manter), Tech Lead (A0), Security (A5)
 **Assinatura:** pendente

@@ -24,7 +24,7 @@ description: "Notícias, anúncios de release, changelogs e atualizações do pr
         <time datetime="2026-10-21">21 Out 2026</time>
       </header>
       <h2><a href="#">Conexus Mobile OS v1.0.0-stable — First Stable Release</a></h2>
-      <p class="post-excerpt">First stable release based on LineageOS 23.2 (Android 15 QPR). Conexus Launcher v1.0 with Live Tiles, Metro UI, OTA A/B, Metro UI design system, and production-grade security.</p>
+      <p class="post-excerpt">First stable release based on LineageOS 23.2 (Android 16). Conexus Launcher v1.0 with Live Tiles, Metro UI, OTA A/B, Metro UI design system, and production-grade security.</p>
       <footer class="post-footer">
         <span class="post-tag stable">Stable</span>
         <a href="#" class="read-more">Ler mais →</a>

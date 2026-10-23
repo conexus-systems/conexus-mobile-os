@@ -2,16 +2,16 @@
 
 **Versão:** v0.2  
 **Data:** 21 de outubro de 2026  
-**Status:** Baseline — LineageOS 23.2 (Android 15) como upstream, Conexus Launcher como default
+**Status:** Baseline — LineageOS 23.2 (Android 16) como upstream, Conexus Launcher como default
 
 ---
 
 ## 1. Resumo Executivo
 
-O **Conexus Mobile OS** é um sistema operacional móvel **open source** (Apache-2.0), baseado no **LineageOS 23.2 (Android 15 QPR)**, que traz a experiência do Windows 10 Mobile (Live Tiles, navegação fluida, Action Center, teclado, integração entre apps) para dispositivos modernos, com o **Conexus Launcher** como launcher padrão de toda a experiência.
+O **Conexus Mobile OS** é um sistema operacional móvel **open source** (Apache-2.0), baseado no **LineageOS 23.2 (Android 16)**, que traz a experiência do Windows 10 Mobile (Live Tiles, navegação fluida, Action Center, teclado, integração entre apps) para dispositivos modernos, com o **Conexus Launcher** como launcher padrão de toda a experiência.
 
 ### Objetivos Principais
-- **Base:** LineageOS 23.2 (Android 15 QPR) — upstream público, builds reproduzíveis, device trees mantidos
+- **Base:** LineageOS 23.2 (Android 16) — upstream público, builds reproduzíveis, device trees mantidos
 - **Launcher padrão:** Conexus Launcher (Live Tiles, pivôs, CommandBar, Metro/W10M design system) — substitui Launcher3/Trebuchet
 - **Distribuição:** Open source (Apache-2.0), releases públicos via **GitHub Releases** + **OTA** próprio
 - **Site público:** `conexus-mobile-os.github.io` na organização `conexus-mobile-os` — docs, downloads, OTA metadata, device support
@@ -175,13 +175,13 @@ O **Conexus Mobile OS** é um sistema operacional móvel **open source** (Apache
 
 ---
 
-## 5. Base Técnica — LineageOS 23.2 (Android 15)
+## 5. Base Técnica — LineageOS 23.2 (Android 16)
 
 ### 5.1 Target Específico
 | Componente | Versão/Configuração |
 |------------|---------------------|
 | **Upstream** | LineageOS 23.2 (branch `lineage-23.2`) |
-| **Android** | 15 QPR (`android-15.0.0_r1`) |
+| **Android** | 16 (`android-16.0.0_r4`, tag do manifest `lineage-23.2`) |
 | **Device** | Google Pixel 8a (`akita`) |
 | **SoC** | Google Tensor G3 (GS101) |
 | **RAM** | 8 GB LPDDR5X |

@@ -26,9 +26,9 @@ O Conexus Mobile OS precisa de uma base de sistema operacional que forneça:
 
 ## Decisão
 
-**Usar LineageOS 23.2 (Android 15 QPR) como base principal para o produto instalável em dispositivos Android modernos.**
+**Usar LineageOS 23.2 (Android 16) como base principal para o produto instalável em dispositivos Android modernos.**
 
-- Target: LineageOS 23.2 (branch `lineage-23.2`) + Android 15 (`android-15.0.0_r1`)
+- Target: LineageOS 23.2 (branch `lineage-23.2`) + Android 16 (`android-16.0.0_r4`)
 - Build: LineageOS upstream + device trees + vendor blobs + Conexus customizations (launcher, services, SDK)
 - Distribuição: Imagens assinadas (AVB v2), OTA via GitHub Releases + Pages, release cadence (nightly/weekly/monthly/stable)
 - Certificação: Não buscar GMS/Play certification no Alpha; documentar gap; avaliar microG futuramente
