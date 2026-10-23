@@ -65,7 +65,6 @@ exclude:
   - .git
   - .github
   - scripts
-  - "*.md"
   - "*.txt"
   - "*.yml"
   - "*.yaml"
