@@ -1,0 +1,94 @@
+# Lumia Linux Port — Git Ignore
+# Arquivos gerados, binários, segredos, builds locais
+
+# pmbootstrap build dirs
+**/cache/
+**/tmp/
+**/aports/
+**/packages/
+**/build.log
+**/init.log
+**/config_*.sh
+
+# Binários baixados (Windows)
+downloads/WPInternals/
+downloads/FFU/
+*.ffu
+*.zip
+*.exe
+*.msi
+
+# Chaves/assinaturas
+*.pem
+*.key
+*.asc
+*.sig
+signing-keys/
+
+# Logs e outputs
+*.log
+*.out
+*.err
+nohup.out
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.venv/
+venv/
+env/
+
+# IDE/editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.orig
+
+# Device-specific (não commitar dados do device)
+device-dumps/
+backup-*/
+*.img
+*.dtb
+*.dtbo
+*.zImage
+*.Image
+*Image.gz
+*Image.gz-dtb
+vmlinux
+System.map
+Module.symvers
+
+# Cross-compile outputs
+arm-linux-gnueabihf-*
+aarch64-linux-gnu-*
+*.ko
+*.mod.c
+*.mod.o
+*.o.cmd
+*.symvers
+
+# Flash tools outputs
+flash-*.log
+fastboot-*.log
+
+# Secrets (nunca commitar)
+.env
+.env.local
+*.env
+secrets/
+credentials/
