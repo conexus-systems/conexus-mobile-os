@@ -3,12 +3,12 @@
   "device": "akita",
   "channel": "stable",
   "date": "2026-10-21",
-  "url": "https://github.com/conexus-mobile-os/conexus-mobile-os/releases/download/v1.0.0-stable-akita/conexus-akita-v1.0.0-stable.zip",
-  "sha256": "a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456",
+  "url": "https://github.com/conexus-systems/conexus-mobile-os/releases/download/v1.0.0-stable-akita/conexus-akita-v1.0.0-stable.zip",
+  "sha256": null,
   "size": 2147483648,
-  "changelog_url": "https://github.com/conexus-mobile-os/conexus-mobile-os/releases/tag/v1.0.0-stable-akita",
+  "changelog_url": "https://github.com/conexus-systems/conexus-mobile-os/releases/tag/v1.0.0-stable-akita",
   "install_instructions_url": "https://conexus-mobile-os.github.io/docs/install",
-  "signature_url": "https://github.com/conexus-mobile-os/conexus-mobile-os/releases/download/v1.0.0-stable-akita/conexus-akita-v1.0.0-stable.asc",
+  "signature_url": null,
   "requirements": {
     "min_battery": 30,
     "wifi_required": true,
@@ -17,5 +17,6 @@
   "rollback": {
     "supported": true,
     "method": "A/B auto-rollback on boot failure"
-  }
+  },
+  "status": "placeholder-not-published"
 }

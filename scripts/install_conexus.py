@@ -24,6 +24,17 @@ from typing import Optional, List, Dict, Tuple
 from urllib.request import urlopen, Request
 from urllib.error import URLError, HTTPError
 
+from installer_safety import (
+    InstallerSafetyError,
+    confirmation_phrase,
+    is_valid_sha256,
+    parse_sha256sums,
+    REQUIRED_IMAGES,
+    require_images,
+    safe_extract,
+    verify_sha256,
+)
+
 
 @dataclass
 class DeviceInfo:
@@ -69,9 +80,9 @@ SUPPORTED_DEVICES = {
 CHANNELS = ["stable", "monthly", "weekly", "nightly"]
 
 # GitHub API base
-GITHUB_API = "https://api.github.com/repos/conexus-mobile-os/conexus-mobile-os"
-GITHUB_RELEASES = "https://github.com/conexus-mobile-os/conexus-mobile-os/releases"
-GITHUB_RAW = "https://raw.githubusercontent.com/conexus-mobile-os/conexus-mobile-os/main"
+GITHUB_API = "https://api.github.com/repos/conexus-systems/conexus-mobile-os"
+GITHUB_RELEASES = "https://github.com/conexus-systems/conexus-mobile-os/releases"
+GITHUB_RAW = "https://raw.githubusercontent.com/conexus-systems/conexus-mobile-os/main"
 
 
 class Colors:
@@ -276,17 +287,24 @@ class ReleaseManager:
                             ota_asset = asset
                             break
 
-                    if not ota_asset and assets:
-                        ota_asset = assets[0]  # Fallback to first asset
-
                     if ota_asset:
-                        # Calculate SHA256 (in real implementation, would be provided)
+                        sums_asset = next((a for a in assets if a["name"] == "SHA256SUMS"), None)
+                        if not sums_asset:
+                            Logger.error(f"Release {tag} has no SHA256SUMS asset; refusing to use it")
+                            return None
+                        sums_req = Request(sums_asset["browser_download_url"], headers={"User-Agent": "ConexusInstaller/0.1"})
+                        with urlopen(sums_req, timeout=30) as sums_resp:
+                            sums = parse_sha256sums(sums_resp.read().decode())
+                        digest = sums.get(ota_asset["name"], "")
+                        if not is_valid_sha256(digest):
+                            Logger.error(f"SHA256SUMS of {tag} has no valid entry for {ota_asset['name']}")
+                            return None
                         return ReleaseInfo(
                             version=release["tag_name"].replace(f"-{device}", ""),
                             channel=self.channel,
                             device=device,
                             download_url=ota_asset["browser_download_url"],
-                            sha256="",  # Would be verified
+                            sha256=digest,
                             size=ota_asset["size"],
                             signature_url="",
                             changelog_url=release["html_url"],
@@ -303,47 +321,6 @@ class ReleaseManager:
         except Exception as e:
             Logger.error(f"Failed to fetch release: {e}")
             return None
-
-    async def fetch_fallback_release(self, device: str) -> Optional[ReleaseInfo]:
-        """Fallback to mock release data for demo"""
-        mock_releases = {
-            "akita-stable": ReleaseInfo(
-                version="v1.0.0-stable",
-                channel="stable",
-                device="akita",
-                download_url=f"{GITHUB_RELEASES}/download/v1.0.0-stable-akita/conexus-akita-v1.0.0-stable.zip",
-                sha256="a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456",
-                size=2147483648,
-                signature_url="",
-                changelog_url=f"{GITHUB_RELEASES}/tag/v1.0.0-stable-akita",
-                requirements={"min_battery": 30, "wifi_required": True, "storage_min_mb": 3072}
-            ),
-            "akita-monthly": ReleaseInfo(
-                version="v1.1.0-monthly",
-                channel="monthly",
-                device="akita",
-                download_url="",
-                sha256="",
-                size=0,
-                signature_url="",
-                changelog_url="",
-                requirements={}
-            ),
-            "pong-stable": ReleaseInfo(
-                version="v1.0.0-stable",
-                channel="stable",
-                device="pong",
-                download_url="",
-                sha256="",
-                size=0,
-                signature_url="",
-                changelog_url="",
-                requirements={}
-            ),
-        }
-
-        key = f"{device}-{self.channel}"
-        return mock_releases.get(key)
 
 
 class Installer:
@@ -374,6 +351,12 @@ class Installer:
             # Step 4: Download and verify
             if not await self.download_and_verify():
                 return False
+
+            # Step 4.4: Backup warning
+            if not self.args.skip_backup and not self.args.dry_run:
+                Logger.warning("Flashing erases ALL data on the device.")
+                if not self.confirm("Did you back up everything you need?"):
+                    return False
 
             # Step 4.5: Show installation plan
             if not self.show_install_plan():
@@ -413,13 +396,7 @@ class Installer:
 
         rm = ReleaseManager(self.args.channel)
 
-        # Try GitHub API first
         self.release = await rm.fetch_latest_release(self.device_info.codename)
-
-        # Fallback to mock data
-        if not self.release:
-            Logger.warning("Using fallback release data")
-            self.release = await rm.fetch_fallback_release(self.device_info.codename)
 
         if not self.release:
             Logger.error(f"No release found for {self.device_info.codename} on {self.args.channel} channel")
@@ -527,24 +504,21 @@ class Installer:
             print()  # New line after progress
             Logger.success("Download complete")
 
-            # Verify SHA256
-            if self.release.sha256:
-                Logger.info("Verifying SHA256...")
-                sha256 = hashlib.sha256()
-                with open(self.download_path, 'rb') as f:
-                    for chunk in iter(lambda: f.read(8192), b''):
-                        sha256.update(chunk)
-                    calculated = sha256.hexdigest()
-                    if calculated.lower() == self.release.sha256.lower():
-                        Logger.success("SHA256 verification PASSED")
-                    else:
-                        Logger.error(f"SHA256 MISMATCH! Expected: {self.release.sha256}, Got: {calculated}")
-                        return False
-            else:
-                Logger.warning("No SHA256 provided - skipping verification")
+            Logger.info("Verifying SHA256...")
+            verify_sha256(self.download_path, self.release.sha256)
+            Logger.success("SHA256 verification PASSED")
+            Logger.warning("Integrity checked (SHA-256). Authenticity (signature) is NOT verified yet: only install builds from the official repository.")
+
+            Logger.info("Extracting images...")
+            extracted = safe_extract(self.download_path, self.download_path.parent)
+            require_images(extracted)
+            Logger.success(f"Extracted {len(extracted)} files")
 
             return True
 
+        except InstallerSafetyError as e:
+            Logger.error(f"Package rejected: {e}")
+            return False
         except HTTPError as e:
             Logger.error(f"Download failed: HTTP {e.code}")
             return False
@@ -571,7 +545,13 @@ class Installer:
         if self.args.dry_run:
             return True
 
-        return self.confirm("Proceed with installation?")
+        print(f"{Colors.colorize('This ERASES all data on the device and replaces its system.', Colors.RED)}")
+        phrase = confirmation_phrase(self.serial, self.device_info.codename)
+        typed = input(f"{Colors.colorize('[?]', Colors.YELLOW)} To authorize, type exactly: {phrase}\n> ").strip()
+        if typed != phrase:
+            Logger.error("Confirmation phrase did not match; nothing was changed")
+            return False
+        return True
 
     async def flash(self) -> bool:
         Logger.step("Flashing Conexus Mobile OS...")
@@ -589,6 +569,13 @@ class Installer:
 
         Logger.success("Device in fastboot mode")
 
+        # The package must be for exactly this device
+        product = subprocess.run(["fastboot", "getvar", "product"], capture_output=True, text=True, timeout=15)
+        product_out = (product.stdout + product.stderr).lower()
+        if f"product: {self.device_info.codename}" not in product_out:
+            Logger.error(f"fastboot product does not match {self.device_info.codename}; refusing to flash")
+            return False
+
         # Flash partitions
         partitions = [
             ("boot", "boot.img"),
@@ -602,6 +589,9 @@ class Installer:
         for partition, filename in partitions:
             filepath = self.download_path.parent / filename
             if not filepath.exists():
+                if filename in REQUIRED_IMAGES:
+                    Logger.error(f"Required image {filename} not found; aborting before reboot")
+                    return False
                 Logger.warning(f"Skipping {partition} - {filename} not found")
                 continue
 
@@ -669,8 +659,6 @@ Supported devices:
                         help="Simulate installation without making changes")
     parser.add_argument("--skip-backup", action="store_true",
                         help="Skip backup prompt (data will be lost)")
-    parser.add_argument("--device", help="Force specific device codename")
-    parser.add_argument("--version", help="Specific version to install")
     parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
 
     args = parser.parse_args()
