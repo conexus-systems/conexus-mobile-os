@@ -1,0 +1,166 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conexus-mobile-os.github.io/schemas/brand-module.schema.json",
+  "title": "Conexus Brand Module",
+  "description": "Descritor de um módulo de marca: declara a origem do código no driver-core e o que já foi verificado por modelo. Não declara suporte sem evidência (ADR-010, ADR-011).",
+  "type": "object",
+  "required": [
+    "brand",
+    "status"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "brand": {
+      "type": "string",
+      "enum": [
+        "google",
+        "nothing",
+        "oneplus",
+        "oppo",
+        "samsung",
+        "xiaomi",
+        "motorola"
+      ]
+    },
+    "sub_brands": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9-]{1,31}$"
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "planned",
+        "unverified",
+        "verified"
+      ]
+    },
+    "hal_source": {
+      "type": "string",
+      "pattern": "^driver-core/vendors/src/main/java/com/conexus/driver/vendors/[a-z]+/[A-Za-z0-9]+\\.java$"
+    },
+    "devices": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "type": "object",
+        "required": [
+          "codename"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "codename": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+          },
+          "model": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "criteria": {
+            "type": "object",
+            "description": "Critérios de entrada do ADR-010: C1 desbloqueio oficial, C2 kernel GPL, C3 device tree, C4 compatível com ADR-009, C5 recovery testado.",
+            "required": [
+              "c1",
+              "c2",
+              "c3",
+              "c4",
+              "c5"
+            ],
+            "additionalProperties": false,
+            "patternProperties": {
+              "^c[1-5]$": {
+                "type": "object",
+                "required": [
+                  "ok",
+                  "source",
+                  "date"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "ok": {
+                    "type": "boolean"
+                  },
+                  "source": {
+                    "type": "string",
+                    "pattern": "^https://"
+                  },
+                  "date": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "planned"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "not": {
+          "required": [
+            "devices"
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "verified"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "required": [
+          "devices"
+        ],
+        "properties": {
+          "devices": {
+            "minItems": 1,
+            "items": {
+              "required": [
+                "codename",
+                "criteria"
+              ],
+              "properties": {
+                "criteria": {
+                  "patternProperties": {
+                    "^c[1-5]$": {
+                      "properties": {
+                        "ok": {
+                          "const": true
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

@@ -116,6 +116,9 @@ public class Kernel419 implements IKernelInterface {
     @Override
     @NonNull
     public CommandResult executeCommand(@NonNull String command, @Nullable String[] args) {
+        if (!KernelCommandPolicy.isAllowed(command, args)) {
+            return new CommandResult(-1, "", "Command not allowed: " + command, 0);
+        }
         try {
             List<String> cmdList = new ArrayList<>();
             cmdList.add(command);

@@ -1,0 +1,5 @@
+{
+  "brand": "oneplus",
+  "status": "unverified",
+  "hal_source": "driver-core/vendors/src/main/java/com/conexus/driver/vendors/oneplus/OnePlusVendorHal.java"
+}

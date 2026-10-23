@@ -101,30 +101,24 @@ public class DriverInstaller {
         Path extractDir = Files.createTempDirectory("driver-install-");
 
         if (packagePath.toString().endsWith(".cdrv")) {
-            // Extract .cdrv (zip format)
+            // Extract .cdrv (zip format). Entradas fora de extractDir (zip-slip) são recusadas.
+            Path root = extractDir.toAbsolutePath().normalize();
             try (ZipFile zipFile = new ZipFile(packagePath.toFile())) {
-                zipFile.stream().forEach(entry -> {
-                    Path target = Paths.get(extractDir.toString(), entry.getName());
-                    try {
-                        if (entry.isDirectory()) {
-                            Files.createDirectories(target);
-                        } else {
-                            Files.createDirectories(target.getParent());
-                            try (InputStream in = new ZipFile(packagePath.toFile()).getInputStream(entry);
-                                 OutputStream out = Files.newOutputStream(target)) {
-                                byte[] buffer = new byte[8192];
-                                int len;
-                                try (InputStream is = new ZipFile(packagePath.toFile()).getInputStream(entry)) {
-                                    int len;
-                                    while ((len = is.read()) != -1) {
-                                        // Write logic here
-                                    }
-                                }
-                            }
-                        } catch (IOException e) {
-                            throw new UncheckedIOException(e);
+                java.util.Enumeration<? extends java.util.zip.ZipEntry> entries = zipFile.entries();
+                while (entries.hasMoreElements()) {
+                    java.util.zip.ZipEntry entry = entries.nextElement();
+                    Path target = root.resolve(entry.getName()).normalize();
+                    if (!target.startsWith(root)) {
+                        throw new IOException("Entrada de pacote fora do diretório de extração: " + entry.getName());
+                    }
+                    if (entry.isDirectory()) {
+                        Files.createDirectories(target);
+                    } else {
+                        Files.createDirectories(target.getParent());
+                        try (InputStream in = zipFile.getInputStream(entry)) {
+                            Files.copy(in, target, StandardCopyOption.REPLACE_EXISTING);
                         }
-                    });
+                    }
                 }
             }
         } else if (packagePath.toString().endsWith(".tar.gz") || packagePath.toString().endsWith(".tgz")) {
@@ -258,30 +252,36 @@ public class DriverInstaller {
         // Copy config files to appropriate locations
     }
 
+    /**
+     * Scripts de hook vêm do pacote e rodariam com o privilégio do instalador. Ficam desligados:
+     * só rodam se {@code allowHooks} for habilitado explicitamente por quem integra, e nunca
+     * para pacotes que não passaram pela verificação de assinatura do conexus-driver-manager.
+     */
+    private boolean allowHooks = false;
+
+    public void setAllowHooks(boolean allowHooks) {
+        this.allowHooks = allowHooks;
+    }
+
     private void runHook(Path extractDir, String hookName) throws IOException, InterruptedException {
         Path hookScript = extractDir.resolve("scripts").resolve(hookName + ".sh");
-        if (Files.exists(hookScript)) {
-            ProcessBuilder pb = new ProcessBuilder("sh", hookScript.toString());
-            pb.directory(hookScript.getParent().toFile());
-            Process process = pb.start();
-            process.waitFor();
+        if (!Files.exists(hookScript)) {
+            return;
         }
+        if (!allowHooks) {
+            android.util.Log.w("DriverInstaller", "Hook ignorado (desligado por padrão): " + hookName);
+            return;
+        }
+        ProcessBuilder pb = new ProcessBuilder("sh", hookScript.toString());
+        pb.directory(hookScript.getParent().toFile());
+        Process process = pb.start();
+        process.waitFor();
     }
 
     private void updateIndexes() {
         // Update module dependencies
         // Update initramfs
         // Update driver index
-    }
-
-    private void copyConfigs() throws IOException {
-        // Copy configuration files
-    }
-
-    private void updateIndexes() {
-        // Update driver index
-        // Update module dependencies
-        // Regenerate initramfs
     }
 
     /**

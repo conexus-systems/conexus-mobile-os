@@ -1,0 +1,36 @@
+{
+  "brand": "google",
+  "status": "verified",
+  "devices": [
+    {
+      "codename": "akita",
+      "criteria": {
+        "c1": {
+          "ok": true,
+          "source": "http://insecure.example",
+          "date": "2026-10-22"
+        },
+        "c2": {
+          "ok": true,
+          "source": "https://source.android.com/docs/setup/build/building-pixel-kernels",
+          "date": "2026-10-22"
+        },
+        "c3": {
+          "ok": true,
+          "source": "https://source.android.com/docs/setup/build/building-pixel-kernels",
+          "date": "2026-10-22"
+        },
+        "c4": {
+          "ok": true,
+          "source": "https://source.android.com/docs/setup/build/building-pixel-kernels",
+          "date": "2026-10-22"
+        },
+        "c5": {
+          "ok": true,
+          "source": "https://source.android.com/docs/setup/build/building-pixel-kernels",
+          "date": "2026-10-22"
+        }
+      }
+    }
+  ]
+}

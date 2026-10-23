@@ -1,0 +1,9 @@
+{
+  "brand": "google",
+  "status": "verified",
+  "devices": [
+    {
+      "codename": "akita"
+    }
+  ]
+}

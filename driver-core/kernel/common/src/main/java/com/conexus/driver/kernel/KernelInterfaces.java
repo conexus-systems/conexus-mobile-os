@@ -103,7 +103,17 @@ class CommandResult {
     private final String stderr;
     private final long executionTimeMs;
 
-    // Constructor, getters...
+    public CommandResult(int exitCode, String stdout, String stderr, long executionTimeMs) {
+        this.exitCode = exitCode;
+        this.stdout = stdout;
+        this.stderr = stderr;
+        this.executionTimeMs = executionTimeMs;
+    }
+
+    public int getExitCode() { return exitCode; }
+    public String getStdout() { return stdout; }
+    public String getStderr() { return stderr; }
+    public long getExecutionTimeMs() { return executionTimeMs; }
 }
 
 interface KernelEventListener {
