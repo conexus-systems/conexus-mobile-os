@@ -176,8 +176,11 @@ jobs:
       
       - name: Generate SHA256SUMS
         run: |
+          set -euo pipefail
           cd ./artifacts
-          sha256sum *.img *.zip > SHA256SUMS 2>/dev/null || true
+          sha256sum *.img *.zip > SHA256SUMS
+          test -s SHA256SUMS
+          sha256sum -c SHA256SUMS
           cat SHA256SUMS
       
       - name: Sign with minisign (dev key)

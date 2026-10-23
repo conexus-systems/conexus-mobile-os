@@ -1,7 +1,7 @@
 # Device Support Matrix — Conexus Mobile OS
 
-**Versão:** v0.1  
-**Data:** 19 de outubro de 2026  
+**Versão:** v0.2  
+**Data:** 21 de outubro de 2026  
 **Status:** M0 Gate — Device Selection
 
 ---
@@ -150,6 +150,24 @@
 
 ---
 
+## Evidência de PVT por unidade
+
+Uma tabela por aparelho físico. Preencher só com resultado observado; "não testado" é o estado padrão. Nenhum campo é herdado de outra unidade, de emulador ou de relatório anterior.
+
+| Campo | Valor | Data | Operador |
+|-------|-------|------|----------|
+| Modelo / codinome / variante (RM, número de modelo) | não testado | | |
+| Build de firmware/OS de origem | não testado | | |
+| Hash SHA-256 do artefato instalado | não gerado | | |
+| Resultado do boot | não testado | | |
+| Tela / touch | não testado | | |
+| Wi-Fi / Bluetooth | não testado | | |
+| Áudio / câmera / modem | não testado | | |
+| Suspensão / retomada / carga | não testado | | |
+| Procedimento de recovery | não verificado | | |
+
+---
+
 ## Próximas Ações Imediatas (Esta Semana)
 
 1. **[A0 + A2] Comprar 2x Pixel 8a** (1 primário + 1 backup) — ~$1000 total
@@ -177,6 +195,12 @@
 | **Linux Boot** | [LumiaWOA](https://github.com/WOA-Project/LumiaWOA) — **Partial** (display, touch, storage; modem/camera/audio broken) |
 | **Drivers Conhecidos** | Touch: ✅ | Display: ✅ | Modem: ❌ | Camera: ❌ | Audio: ⚠️ | Sensors: ✅ |
 | **Riscos Críticos** | Sem telefonia confiável, sem emergência, hardware 2015, 3GB RAM limite |
+
+**Status por periférico (legenda):** `não testado` · `funciona` · `parcial` · `bloqueado`. Cada entrada exige evidência e o ID do firmware/build usado.
+
+Periféricos a registrar, um por linha, na tabela de evidência acima: display, touch, storage, USB, Wi-Fi, Bluetooth, áudio, câmera, modem, sensores, suspensão/retomada, térmico, carga.
+
+**Regra:** nenhum Lumia é usado como aparelho do dia a dia, e nenhuma compatibilidade é anunciada publicamente, até que a funcionalidade exigida e o procedimento de recovery estejam demonstrados nesta tabela.
 
 ---
 

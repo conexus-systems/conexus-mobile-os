@@ -179,7 +179,7 @@ Antes de qualquer release (Nightly, Alpha, Beta, Stable):
 
 ## Referências
 
-- [ADR-001: AOSP Primary Base](../docs/architecture/ADR/0001-aosp-primary-base.md)
+- [ADR-001: LineageOS 23.2 como Base Principal](docs/architecture/ADR/0001-lineageos-base.md) (substitui o ADR-001 AOSP, em [superseded/](docs/architecture/ADR/superseded/0001-aosp-primary-base.md))
 - [ADR-005: Recovery Before Flash](../docs/architecture/ADR/0005-recovery-before-flash.md)
 - [ADR-007: System Services Isolated](../docs/architecture/ADR/0007-system-services-isolated.md)
 - [ADR-008: OTA Updates](../docs/architecture/ADR/0008-ota-updates-ab-partitions.md)
