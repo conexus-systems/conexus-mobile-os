@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://conexus-mobile-os.github.io/sitemap.xml

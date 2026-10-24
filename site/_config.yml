@@ -4,6 +4,12 @@ description: "Sistema operacional móvel open source baseado no LineageOS 23.2, 
 url: "https://conexus-mobile-os.github.io"
 baseurl: ""
 
+lang: pt-BR
+author: "Conexus Mobile OS"
+twitter:
+  username: conexusmobileos
+  card: summary_large_image
+
 # Organization
 github_org: "conexus-mobile-os"
 github_repo: "conexus-mobile-os"
@@ -57,6 +63,9 @@ defaults:
       layout: "release"
 
 # Exclude
+include:
+  - robots.txt
+
 exclude:
   - Gemfile
   - Gemfile.lock
