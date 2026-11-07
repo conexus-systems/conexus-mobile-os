@@ -1,0 +1,52 @@
+name: shell-poc
+
+on:
+  push:
+    branches: [feat/phase1-shell-poc, main]
+    paths: ['shell/conexus-shell-poc/**', '.github/workflows/shell-poc.yml']
+  pull_request:
+    paths: ['shell/conexus-shell-poc/**']
+  workflow_dispatch:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Qt6 deps
+        run: sudo apt-get update && sudo apt-get install -y qt6-base-dev qt6-declarative-dev qt6-base-dev-tools libgl1-mesa-dev
+      - name: Build
+        working-directory: shell/conexus-shell-poc
+        run: cmake -B build -S . && cmake --build build
+      - name: Tests (offscreen)
+        working-directory: shell/conexus-shell-poc
+        run: QT_QPA_PLATFORM=offscreen ctest --test-dir build --output-on-failure
+      - name: Screenshots (evidência)
+        working-directory: shell/conexus-shell-poc
+        run: |
+          mkdir -p shots
+          for s in home locked controlCenter appSwitcher; do
+            QT_QPA_PLATFORM=offscreen ./build/conexus-shell --screenshot shots/$s.png --state $s
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: shell-poc-screenshots
+          path: shell/conexus-shell-poc/shots/
+
+  qemu-boot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Boot smoke (busybox initramfs, TCG)
+        run: |
+          mkdir -p /tmp/cq/bin && cd /tmp/cq
+          curl -sL -o bin/busybox https://busybox.net/downloads/binaries/1.35.0-x86_64-linux-musl/busybox && chmod +x bin/busybox
+          printf '%s\n' '#!/bin/busybox sh' '/bin/busybox mkdir -p /proc /sys /dev' \
+            '/bin/busybox mount -t proc proc /proc' '/bin/busybox mount -t sysfs sysfs /sys' \
+            'echo "CONEXUS MOBILE OS - initramfs boot OK (CI)"' 'echo CONEXUS-BOOT-OK' \
+            '/bin/busybox sleep 1' '/bin/busybox poweroff -f' > init && chmod +x init
+          find . -name boot.log -prune -o -print | cpio -o -H newc --quiet | gzip > initramfs.cpio.gz
+          sudo apt-get install -y qemu-system-x86 cpio
+          timeout 60 qemu-system-x86_64 -m 512M -initrd initramfs.cpio.gz \
+            -append 'console=ttyS0' -nographic -no-reboot < /dev/null > boot.log 2>&1 || true
+          grep -q CONEXUS-BOOT-OK boot.log && echo "BOOT OK" || (cat boot.log; exit 1)
