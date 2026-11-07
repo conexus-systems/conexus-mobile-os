@@ -46,7 +46,7 @@ jobs:
           echo "kernel package: $PKG"
           apt-get download "$PKG"
           mkdir kpkg && dpkg -x linux-image-*.deb kpkg
-          KZ=$(find kpkg -name 'vmlinuz-*' | head -1)
+          KZ=$(find "$(pwd)/kpkg" -name 'vmlinuz-*' | head -1)
           test -n "$KZ" || { find kpkg -type f | head; exit 1; }
           echo "KZ=$KZ" >> "$GITHUB_ENV"
       - name: Boot smoke (busybox initramfs, TCG, com -kernel)
