@@ -39,11 +39,16 @@ jobs:
       - uses: actions/checkout@v4
       - name: Deps (apt update evita 404 de mirror)
         run: sudo apt-get update && sudo apt-get install -y qemu-system-x86
-      - name: Kernel (linux-image-virtual extraído sem root)
+      - name: Kernel (pacote real via dependência do meta; extraído sem root)
         run: |
-          apt-get download linux-image-virtual
+          sudo apt-get update
+          PKG=$(apt-cache depends linux-image-virtual | awk '/Depends: linux-image-/{print $2; exit}')
+          echo "kernel package: $PKG"
+          apt-get download "$PKG"
           mkdir kpkg && dpkg -x linux-image-*.deb kpkg
-          KZ=$(find kpkg -name 'vmlinuz-*' | head -1) && echo "KZ=$KZ" >> "$GITHUB_ENV"
+          KZ=$(find kpkg -name 'vmlinuz-*' | head -1)
+          test -n "$KZ" || { find kpkg -type f | head; exit 1; }
+          echo "KZ=$KZ" >> "$GITHUB_ENV"
       - name: Boot smoke (busybox initramfs, TCG, com -kernel)
         run: |
           mkdir -p /tmp/cq/bin && cd /tmp/cq
